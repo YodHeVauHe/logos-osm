@@ -172,14 +172,16 @@ async fn main() {
 
 async fn run(cli: Cli) -> i32 {
     let cfg = load_config(cli.config.as_ref());
+    let needs_chain = !matches!(cli.cmd, Cmd::Discover { .. });
     let program_id = match cli.program_id.clone().or_else(|| cfg.program_id.clone()) {
         Some(p) => p,
-        None => {
+        None if needs_chain => {
             eprintln!(
                 "no --program-id (or OSM_PROGRAM_ID, or config program_id); run `osm init-registry` after `lgs deploy` and set it"
             );
             return 1;
         }
+        None => String::new(),
     };
 
     let storage: Box<dyn StorageBackend> = if cli.storage_memory {
