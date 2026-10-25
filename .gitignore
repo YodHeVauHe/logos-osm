@@ -1,0 +1,14 @@
+/target
+methods/guest/target
+examples/target
+tools/target
+ffi/target
+batch-*/
+result
+result-*
+.direnv
+*.lgx
+*.so
+!osm-module/vendored/*.so
+node_modules
+__pycache__

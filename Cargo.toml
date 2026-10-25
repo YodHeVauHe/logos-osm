@@ -1,0 +1,38 @@
+[workspace]
+members = [
+    "osm_registry_core",
+    "osm_sdk",
+    "osm_cli",
+    "ffi",
+]
+exclude = [
+    "methods",
+    "examples",
+    "tools",
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/placeholder/logos-osm"
+
+[workspace.dependencies]
+osm_registry_core = { path = "osm_registry_core" }
+borsh = { version = "1", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+anyhow = "1"
+tokio = { version = "1", features = ["full"] }
+clap = { version = "4", features = ["derive", "env"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "stream"] }
+md-5 = "0.10"
+sha2 = "0.10"
+hex = "0.4"
+async-trait = "0.1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tempfile = "3"
+wiremock = "0.6"
