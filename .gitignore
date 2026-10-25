@@ -12,3 +12,4 @@ result-*
 !osm-module/lib/*.so
 node_modules
 __pycache__
+lmb.md
