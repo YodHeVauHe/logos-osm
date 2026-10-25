@@ -94,7 +94,12 @@ pub fn parse_index(json: &str) -> Result<Vec<IndexEntry>, SdkError> {
         if pbf_url.is_none() {
             continue; // cannot be hosted without a pbf url
         }
-        out.push(IndexEntry { id, parent, name, pbf_url });
+        out.push(IndexEntry {
+            id,
+            parent,
+            name,
+            pbf_url,
+        });
     }
     Ok(out)
 }
@@ -167,24 +172,40 @@ mod tests {
     fn url_is_parent_chain() {
         for r in predefined() {
             assert!(
-                r.pbf_url.starts_with(&format!("https://download.geofabrik.de/{}/", r.continent)),
+                r.pbf_url
+                    .starts_with(&format!("https://download.geofabrik.de/{}/", r.continent)),
                 "{} -> {}",
                 r.region,
                 r.pbf_url
             );
             assert!(r.pbf_url.ends_with("-latest.osm.pbf"));
         }
-        assert!(get("india/central-zone").unwrap().pbf_url.contains("/asia/india/central-zone-"));
-        assert!(get("russia/central-fed-district").unwrap().pbf_url.contains("/russia/central-fed-district-"));
-        assert!(get("us/california").unwrap().pbf_url.contains("/north-america/us/california-"));
+        assert!(get("india/central-zone")
+            .unwrap()
+            .pbf_url
+            .contains("/asia/india/central-zone-"));
+        assert!(get("russia/central-fed-district")
+            .unwrap()
+            .pbf_url
+            .contains("/russia/central-fed-district-"));
+        assert!(get("us/california")
+            .unwrap()
+            .pbf_url
+            .contains("/north-america/us/california-"));
     }
 
     #[test]
     fn mapped_regions_resolve() {
         assert!(get("ireland").is_some());
         assert!(get("ireland").unwrap().index_id == "ireland-and-northern-ireland");
-        assert!(get("ireland").unwrap().pbf_url.contains("ireland-and-northern-ireland-latest.osm.pbf"));
-        assert!(get("malaysia").unwrap().pbf_url.contains("malaysia-singapore-brunei-latest.osm.pbf"));
+        assert!(get("ireland")
+            .unwrap()
+            .pbf_url
+            .contains("ireland-and-northern-ireland-latest.osm.pbf"));
+        assert!(get("malaysia")
+            .unwrap()
+            .pbf_url
+            .contains("malaysia-singapore-brunei-latest.osm.pbf"));
     }
 
     #[test]

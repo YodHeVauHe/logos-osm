@@ -277,13 +277,23 @@ async fn run(cli: Cli) -> i32 {
                         d.pbf_url
                     );
                 }
-                println!("\n{} predefined regions (frozen, non-overlapping)", defs.len());
+                println!(
+                    "\n{} predefined regions (frozen, non-overlapping)",
+                    defs.len()
+                );
             }
             0
         }
-        Cmd::Host { ref regions, ref exclude, json } => {
-            let selected: Vec<String> =
-                regions.iter().filter(|r| !exclude.contains(r)).cloned().collect();
+        Cmd::Host {
+            ref regions,
+            ref exclude,
+            json,
+        } => {
+            let selected: Vec<String> = regions
+                .iter()
+                .filter(|r| !exclude.contains(r))
+                .cloned()
+                .collect();
             if selected.is_empty() {
                 eprintln!("no regions selected");
                 return 1;
@@ -320,7 +330,11 @@ async fn run(cli: Cli) -> i32 {
                 Err(e) => fail(&e),
             }
         }
-        Cmd::Import { ref region, ref file, ref md5 } => {
+        Cmd::Import {
+            ref region,
+            ref file,
+            ref md5,
+        } => {
             let signer = match signer_from(&cli, &cfg) {
                 Ok(s) => s,
                 Err(e) => return fail(&e),
@@ -339,7 +353,12 @@ async fn run(cli: Cli) -> i32 {
                 Err(e) => fail(&e),
             }
         }
-        Cmd::Lookup { region, parent, cid, json } => {
+        Cmd::Lookup {
+            region,
+            parent,
+            cid,
+            json,
+        } => {
             let result = if let Some(r) = region {
                 sdk.resolve(&r)
                     .await

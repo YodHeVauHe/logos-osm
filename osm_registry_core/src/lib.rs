@@ -82,7 +82,10 @@ pub fn validate_entry(e: &RegionEntry) -> Result<(), u32> {
     if e.region.is_empty() || e.region.len() > 128 {
         return Err(E_REGION_EMPTY);
     }
-    if !e.region.bytes().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == b'/' || c == b'-')
+    if !e
+        .region
+        .bytes()
+        .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == b'/' || c == b'-')
     {
         return Err(E_BAD_REGION_ID);
     }
@@ -106,17 +109,16 @@ pub fn validate_entry(e: &RegionEntry) -> Result<(), u32> {
     if e.timestamp <= 0 {
         return Err(E_BAD_TIMESTAMP);
     }
-    if e.source_url.is_empty()
-        || e.source_url.len() > 256
-        || !e.source_url.starts_with("http")
-    {
+    if e.source_url.is_empty() || e.source_url.len() > 256 || !e.source_url.starts_with("http") {
         return Err(E_BAD_SOURCE_URL);
     }
     Ok(())
 }
 
 fn is_md5_hex(s: &str) -> bool {
-    s.len() == 32 && s.bytes().all(|c| c.is_ascii_digit() || (b'a'..=b'f').contains(&c))
+    s.len() == 32
+        && s.bytes()
+            .all(|c| c.is_ascii_digit() || (b'a'..=b'f').contains(&c))
 }
 
 #[cfg(test)]
@@ -129,7 +131,8 @@ mod tests {
             parent: Some("us".into()),
             level: LEVEL_SUBREGION,
             cid: "bafktestcid0000000000000000000000000001".into(),
-            source_url: "https://download.geofabrik.de/north-america/us/california-latest.osm.pbf".into(),
+            source_url: "https://download.geofabrik.de/north-america/us/california-latest.osm.pbf"
+                .into(),
             checksum: "35cff894271b8f56ddb81911dcffe089".into(),
             version: "261024".into(),
             hosted: true,

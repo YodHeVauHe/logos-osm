@@ -49,6 +49,9 @@ pub enum SdkError {
 
 impl SdkError {
     pub fn registry(code: u32, message: impl Into<String>) -> Self {
-        Self::Registry { code, message: message.into() }
+        Self::Registry {
+            code,
+            message: message.into(),
+        }
     }
 }

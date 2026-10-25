@@ -17,7 +17,9 @@ use std::sync::Arc;
 
 /// Deterministic synthetic "pbf" bytes.
 fn synthetic_snapshot(seed: u8, len: usize) -> Vec<u8> {
-    (0..len).map(|i| (i as u8).wrapping_mul(seed).wrapping_add(seed)).collect()
+    (0..len)
+        .map(|i| (i as u8).wrapping_mul(seed).wrapping_add(seed))
+        .collect()
 }
 
 fn md5_of(b: &[u8]) -> String {
@@ -31,18 +33,18 @@ async fn spin_geofabrik(body: &[u8]) -> wiremock::MockServer {
     let server = wiremock::MockServer::start().await;
     let md5 = format!("{}  germany-latest.osm.pbf\n", md5_of(body));
     wiremock::Mock::given(wiremock::matchers::method("GET"))
-        .and(wiremock::matchers::path("/europe/germany-latest.osm.pbf.md5"))
+        .and(wiremock::matchers::path(
+            "/europe/germany-latest.osm.pbf.md5",
+        ))
         .respond_with(wiremock::ResponseTemplate::new(200).set_body_string(md5))
         .mount(&server)
         .await;
     wiremock::Mock::given(wiremock::matchers::method("GET"))
         .and(wiremock::matchers::path("/europe/germany-latest.osm.pbf"))
-        .respond_with(
-            wiremock::ResponseTemplate::new(307).insert_header(
-                "Location",
-                format!("{}/europe/germany-261024.osm.pbf", server.uri()),
-            ),
-        )
+        .respond_with(wiremock::ResponseTemplate::new(307).insert_header(
+            "Location",
+            format!("{}/europe/germany-261024.osm.pbf", server.uri()),
+        ))
         .mount(&server)
         .await;
     wiremock::Mock::given(wiremock::matchers::method("GET"))
@@ -84,7 +86,11 @@ async fn host_query_download_roundtrip() {
     assert!(entry.hosted);
 
     // 2. query: resolve by region
-    let resolved = sdk.resolve("germany").await.expect("resolve").expect("registered");
+    let resolved = sdk
+        .resolve("germany")
+        .await
+        .expect("resolve")
+        .expect("registered");
     assert_eq!(resolved.cid, entry.cid);
 
     // 3. download: by CID from storage, checksum-verified
@@ -95,7 +101,10 @@ async fn host_query_download_roundtrip() {
         .expect("download");
     assert_eq!(report.source, osm_sdk::DownloadSource::LogosStorage);
     assert_eq!(report.bytes, body.len() as u64);
-    assert!(report.verified, "downloaded bytes must match the registered MD5");
+    assert!(
+        report.verified,
+        "downloaded bytes must match the registered MD5"
+    );
     assert_eq!(
         osm_sdk::geofabrik::md5_file(&report.path).await.unwrap(),
         md5_of(&body)
@@ -130,10 +139,15 @@ async fn update_flow_rehosts_newer_snapshot() {
         .set_url_rewrite("https://download.geofabrik.de", updated.uri());
     // The updated mirror serves the NEWER dated snapshot: its md5 matches
     // the newer bytes and its -latest redirect names 261025.
-    let md5_new = format!("{}  germany-latest.osm.pbf
-", md5_of(&newer));
+    let md5_new = format!(
+        "{}  germany-latest.osm.pbf
+",
+        md5_of(&newer)
+    );
     wiremock::Mock::given(wiremock::matchers::method("GET"))
-        .and(wiremock::matchers::path("/europe/germany-latest.osm.pbf.md5"))
+        .and(wiremock::matchers::path(
+            "/europe/germany-latest.osm.pbf.md5",
+        ))
         .respond_with(wiremock::ResponseTemplate::new(200).set_body_string(md5_new))
         .mount(&updated)
         .await;
@@ -148,12 +162,10 @@ async fn update_flow_rehosts_newer_snapshot() {
         .await;
     wiremock::Mock::given(wiremock::matchers::method("GET"))
         .and(wiremock::matchers::path("/europe/germany-latest.osm.pbf"))
-        .respond_with(
-            wiremock::ResponseTemplate::new(307).insert_header(
-                "Location",
-                format!("{}/europe/germany-261025.osm.pbf", updated.uri()),
-            ),
-        )
+        .respond_with(wiremock::ResponseTemplate::new(307).insert_header(
+            "Location",
+            format!("{}/europe/germany-261025.osm.pbf", updated.uri()),
+        ))
         .mount(&updated)
         .await;
 

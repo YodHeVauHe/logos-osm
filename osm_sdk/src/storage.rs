@@ -111,7 +111,12 @@ pub struct LogoscoreStorage {
 
 impl LogoscoreStorage {
     pub fn new(bin: PathBuf, modules_dir: PathBuf, storage_config: PathBuf) -> Self {
-        Self { bin, modules_dir, storage_config, max_retries: 5 }
+        Self {
+            bin,
+            modules_dir,
+            storage_config,
+            max_retries: 5,
+        }
     }
 
     /// Init + start + op + stop, as a single logoscore command sequence.
@@ -122,7 +127,10 @@ impl LogoscoreStorage {
             "--load-modules".into(),
             "storage_module".into(),
             "-c".into(),
-            format!("storage_module.init(@{})", self.storage_config.to_string_lossy()),
+            format!(
+                "storage_module.init(@{})",
+                self.storage_config.to_string_lossy()
+            ),
             "-c".into(),
             "storage_module.start()".into(),
         ]
@@ -131,7 +139,10 @@ impl LogoscoreStorage {
     pub(crate) fn command_for_put(&self, file: &Path, name: &str) -> Vec<String> {
         let mut args = self.base_args();
         args.push("-c".into());
-        args.push(format!("storage_module.uploadFile({})", file.to_string_lossy()));
+        args.push(format!(
+            "storage_module.uploadFile({})",
+            file.to_string_lossy()
+        ));
         args.push("-c".into());
         args.push(format!("storage_module.nameObject({name:?})"));
         args.push("-c".into());
@@ -212,7 +223,10 @@ impl StorageBackend for LogoscoreStorage {
             match self.run(&args).await {
                 Ok(stdout) => {
                     let cid = Self::parse_cid_output(&stdout)?;
-                    let size = tokio::fs::metadata(file).await.map(|m| m.len()).unwrap_or(0);
+                    let size = tokio::fs::metadata(file)
+                        .await
+                        .map(|m| m.len())
+                        .unwrap_or(0);
                     return Ok(PutReceipt { cid, size });
                 }
                 Err(e) => {
@@ -299,10 +313,9 @@ mod tests {
         assert!(joined.contains("storage_module.uploadFile(/tmp/x.pbf)"));
         assert!(joined.contains("storage_module.stop()"));
         let args = st.command_for_get("bafk123", Path::new("/tmp/out.pbf"));
-        assert!(
-            args.join(" ")
-                .contains("storage_module.downloadFile(\"bafk123\", /tmp/out.pbf)")
-        );
+        assert!(args
+            .join(" ")
+            .contains("storage_module.downloadFile(\"bafk123\", /tmp/out.pbf)"));
     }
 
     #[test]

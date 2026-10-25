@@ -24,7 +24,10 @@ pub struct HostOpts {
 
 impl Default for HostOpts {
     fn default() -> Self {
-        Self { hosted: true, max_retries: 3 }
+        Self {
+            hosted: true,
+            max_retries: 3,
+        }
     }
 }
 
@@ -71,7 +74,11 @@ pub struct OsmSdk {
 
 impl OsmSdk {
     pub fn new(storage: Box<dyn StorageBackend>, registry: Box<dyn RegistryClient>) -> Self {
-        Self { geofabrik: Geofabrik::new(), storage, registry }
+        Self {
+            geofabrik: Geofabrik::new(),
+            storage,
+            registry,
+        }
     }
 
     /// All 72 predefined regions (bundled frozen set).
@@ -81,7 +88,10 @@ impl OsmSdk {
 
     /// The frozen set rebuilt from a live Geofabrik index fetch (fresh
     /// canonical URLs); falls back to the bundled URLs offline.
-    pub fn discover_refreshed(&self, index_json: &str) -> Result<Vec<regions::RegionDef>, SdkError> {
+    pub fn discover_refreshed(
+        &self,
+        index_json: &str,
+    ) -> Result<Vec<regions::RegionDef>, SdkError> {
         regions::refresh_from_index(index_json)
     }
 
@@ -111,7 +121,10 @@ impl OsmSdk {
         let map = self.registry.fetch_all().await?;
         Ok(map
             .map(|m| {
-                crate::registry::query_by_cid(&m, cid).into_iter().cloned().collect()
+                crate::registry::query_by_cid(&m, cid)
+                    .into_iter()
+                    .cloned()
+                    .collect()
             })
             .unwrap_or_default())
     }
@@ -130,7 +143,9 @@ impl OsmSdk {
             .host_one(region, &tmp.path().join("r.pbf"), &opts)
             .await?;
         entry.registered_by = signer;
-        self.registry.register(std::slice::from_ref(&entry), signer).await?;
+        self.registry
+            .register(std::slice::from_ref(&entry), signer)
+            .await?;
         Ok(entry)
     }
 
@@ -190,7 +205,10 @@ impl OsmSdk {
         if !ready.is_empty() {
             self.registry.register(&ready, signer).await?;
         }
-        Ok(HostReport { registered: ready, skipped })
+        Ok(HostReport {
+            registered: ready,
+            skipped,
+        })
     }
 
     async fn host_one(
@@ -273,9 +291,13 @@ impl OsmSdk {
             registered_by: signer,
             record_version: 1,
         };
-        osm_registry_core::validate_entry(&entry)
-            .map_err(|code| SdkError::InvalidEntry { region: region.to_string(), code })?;
-        self.registry.register(std::slice::from_ref(&entry), signer).await?;
+        osm_registry_core::validate_entry(&entry).map_err(|code| SdkError::InvalidEntry {
+            region: region.to_string(),
+            code,
+        })?;
+        self.registry
+            .register(std::slice::from_ref(&entry), signer)
+            .await?;
         Ok(entry)
     }
 
@@ -326,7 +348,10 @@ impl OsmSdk {
         let dest = dest_dir.join(format!(
             "{}-{}.osm.pbf",
             region.replace('/', "-"),
-            entry.as_ref().map(|e| e.version.as_str()).unwrap_or("local")
+            entry
+                .as_ref()
+                .map(|e| e.version.as_str())
+                .unwrap_or("local")
         ));
         let source = match &entry {
             Some(e) if e.hosted => {
@@ -342,8 +367,17 @@ impl OsmSdk {
             Some(e) => crate::geofabrik::md5_file(&dest).await? == e.checksum,
             None => true,
         };
-        let bytes = tokio::fs::metadata(&dest).await.map(|m| m.len()).unwrap_or(0);
-        Ok(DownloadReport { region: region.to_string(), source, path: dest, bytes, verified })
+        let bytes = tokio::fs::metadata(&dest)
+            .await
+            .map(|m| m.len())
+            .unwrap_or(0);
+        Ok(DownloadReport {
+            region: region.to_string(),
+            source,
+            path: dest,
+            bytes,
+            verified,
+        })
     }
 }
 
@@ -394,20 +428,23 @@ mod tests {
 
         let body = b"pbf-bytes-for-germany".to_vec();
         wiremock::Mock::given(wiremock::matchers::method("GET"))
-            .and(wiremock::matchers::path("/europe/germany-latest.osm.pbf.md5"))
-            .respond_with(wiremock::ResponseTemplate::new(200).set_body_string(
-                format!("{}  germany-latest.osm.pbf\n", hex::encode(md5_of(&body))),
+            .and(wiremock::matchers::path(
+                "/europe/germany-latest.osm.pbf.md5",
             ))
+            .respond_with(
+                wiremock::ResponseTemplate::new(200).set_body_string(format!(
+                    "{}  germany-latest.osm.pbf\n",
+                    hex::encode(md5_of(&body))
+                )),
+            )
             .mount(&server)
             .await;
         wiremock::Mock::given(wiremock::matchers::method("GET"))
             .and(wiremock::matchers::path("/europe/germany-latest.osm.pbf"))
-            .respond_with(
-                wiremock::ResponseTemplate::new(307).insert_header(
-                    "Location",
-                    format!("{}/europe/germany-261024.osm.pbf", server.uri()),
-                ),
-            )
+            .respond_with(wiremock::ResponseTemplate::new(307).insert_header(
+                "Location",
+                format!("{}/europe/germany-261024.osm.pbf", server.uri()),
+            ))
             .mount(&server)
             .await;
         wiremock::Mock::given(wiremock::matchers::method("GET"))
@@ -444,17 +481,18 @@ mod tests {
             .set_url_rewrite("https://download.geofabrik.de", server.uri());
 
         wiremock::Mock::given(wiremock::matchers::method("GET"))
-            .and(wiremock::matchers::path("/europe/germany-latest.osm.pbf.md5"))
-            .respond_with(wiremock::ResponseTemplate::new(200).set_body_string(
-                "35cff894271b8f56ddb81911dcffe089  germany-latest.osm.pbf\n",
+            .and(wiremock::matchers::path(
+                "/europe/germany-latest.osm.pbf.md5",
             ))
+            .respond_with(
+                wiremock::ResponseTemplate::new(200)
+                    .set_body_string("35cff894271b8f56ddb81911dcffe089  germany-latest.osm.pbf\n"),
+            )
             .mount(&server)
             .await;
         wiremock::Mock::given(wiremock::matchers::method("GET"))
             .and(wiremock::matchers::path("/europe/germany-latest.osm.pbf"))
-            .respond_with(
-                wiremock::ResponseTemplate::new(200).set_body_bytes(b"tampered".to_vec()),
-            )
+            .respond_with(wiremock::ResponseTemplate::new(200).set_body_bytes(b"tampered".to_vec()))
             .mount(&server)
             .await;
 
@@ -464,7 +502,12 @@ mod tests {
             .unwrap_err();
         assert!(matches!(err, SdkError::ChecksumMismatch { .. }), "{err}");
         assert_eq!(storage.object_count().await, 0);
-        assert!(mock.fetch_all().await.unwrap().map(|m| m.is_empty()).unwrap_or(true));
+        assert!(mock
+            .fetch_all()
+            .await
+            .unwrap()
+            .map(|m| m.is_empty())
+            .unwrap_or(true));
     }
 
     #[tokio::test]
@@ -501,8 +544,14 @@ mod tests {
         }
         // -latest 307s
         for (latest, dated) in [
-            ("/europe/germany-latest.osm.pbf", "/europe/germany-261024.osm.pbf"),
-            ("/europe/france-latest.osm.pbf", "/europe/france-261024.osm.pbf"),
+            (
+                "/europe/germany-latest.osm.pbf",
+                "/europe/germany-261024.osm.pbf",
+            ),
+            (
+                "/europe/france-latest.osm.pbf",
+                "/europe/france-261024.osm.pbf",
+            ),
         ] {
             wiremock::Mock::given(wiremock::matchers::method("GET"))
                 .and(wiremock::matchers::path(latest))
@@ -536,10 +585,13 @@ mod tests {
             .set_url_rewrite("https://download.geofabrik.de", server.uri());
         // germany works; france pbf 404s
         wiremock::Mock::given(wiremock::matchers::method("GET"))
-            .and(wiremock::matchers::path("/europe/germany-latest.osm.pbf.md5"))
-            .respond_with(wiremock::ResponseTemplate::new(200).set_body_string(
-                format!("{}  x\n", hex::encode(md5_of(b"de-bytes"))),
+            .and(wiremock::matchers::path(
+                "/europe/germany-latest.osm.pbf.md5",
             ))
+            .respond_with(
+                wiremock::ResponseTemplate::new(200)
+                    .set_body_string(format!("{}  x\n", hex::encode(md5_of(b"de-bytes")))),
+            )
             .mount(&server)
             .await;
         wiremock::Mock::given(wiremock::matchers::method("GET"))
@@ -564,7 +616,10 @@ mod tests {
             .host_regions(
                 &["germany".into(), "france".into()],
                 [7u8; 32],
-                HostOpts { max_retries: 1, ..Default::default() },
+                HostOpts {
+                    max_retries: 1,
+                    ..Default::default()
+                },
             )
             .await
             .unwrap();
@@ -614,7 +669,10 @@ mod tests {
                 Some("00000000000000000000000000000000".into()),
             )
             .await;
-        assert!(matches!(wrong.unwrap_err(), SdkError::ChecksumMismatch { .. }));
+        assert!(matches!(
+            wrong.unwrap_err(),
+            SdkError::ChecksumMismatch { .. }
+        ));
     }
 
     #[tokio::test]
@@ -630,12 +688,10 @@ mod tests {
             .set_url_rewrite("https://download.geofabrik.de", server.uri());
         wiremock::Mock::given(wiremock::matchers::method("GET"))
             .and(wiremock::matchers::path("/europe/germany-latest.osm.pbf"))
-            .respond_with(
-                wiremock::ResponseTemplate::new(307).insert_header(
-                    "Location",
-                    format!("{}/europe/germany-261025.osm.pbf", server.uri()),
-                ),
-            )
+            .respond_with(wiremock::ResponseTemplate::new(307).insert_header(
+                "Location",
+                format!("{}/europe/germany-261025.osm.pbf", server.uri()),
+            ))
             .mount(&server)
             .await;
 
@@ -684,8 +740,7 @@ mod tests {
         wiremock::Mock::given(wiremock::matchers::method("GET"))
             .and(wiremock::matchers::path("/europe/germany-latest.osm.pbf"))
             .respond_with(
-                wiremock::ResponseTemplate::new(200)
-                    .set_body_bytes(b"fallback bytes".to_vec()),
+                wiremock::ResponseTemplate::new(200).set_body_bytes(b"fallback bytes".to_vec()),
             )
             .mount(&server)
             .await;

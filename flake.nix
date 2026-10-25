@@ -7,22 +7,21 @@
 
     storage_module.url = "github:logos-co/logos-storage-module";
     storage_module.inputs.logos-module-builder.follows = "logos-module-builder";
-
-    # The FFI shared library is built outside nix via `make ffi`
-    # (cargo build --release in ./ffi) and vendored into osm-module.
-    # If the file doesn't exist, nix eval gives a clear "no such file".
-    ffiLib = ./osm-module/vendored/libosm_ffi.so;
   };
 
       outputs = inputs@{ self, nixpkgs, logos-module-builder, ... }:
     let
+      # The FFI shared library is built outside nix via `make ffi`
+      # (cargo build --release in ./ffi) and vendored into osm-module.
+      # If the file doesn't exist, nix eval fails with a clear message.
+      ffiLib = ./osm-module/vendored/libosm_ffi.so;
       osmModule = logos-module-builder.lib.mkLogosModule {
         src = ./osm-module;
         configFile = ./osm-module/metadata.json;
         flakeInputs = inputs;
         postInstall = ''
           mkdir -p $out/lib
-          cp ${inputs.ffiLib} $out/lib/libosm_ffi.so
+          cp ${ffiLib} $out/lib/libosm_ffi.so
         '';
       };
 

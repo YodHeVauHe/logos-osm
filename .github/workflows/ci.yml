@@ -42,10 +42,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - name: Install Docker-based RISC0 toolchain deps
+      - name: Install RISC0 toolchain (rzup)
         run: |
-          cargo install --locked cargo-risczero
-          cargo risczero install --version 2024-05-20 2>/dev/null || true
+          curl -L https://risczero.com/install | bash
+          echo "$HOME/.risc0/bin" >> "$GITHUB_PATH"
+          "$HOME/.risc0/bin/rzup" install rust
+          "$HOME/.risc0/bin/rzup" install cargo-risczero
       - name: Build guest (deterministic, docker)
         run: make build
       - name: Program ID

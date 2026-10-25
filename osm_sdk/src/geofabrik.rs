@@ -26,7 +26,11 @@ pub fn parse_md5_file(text: &str) -> Result<String, SdkError> {
         .next()
         .ok_or_else(|| SdkError::Other(anyhow::anyhow!("md5 file has no digest")))?;
     let lower = hex.to_ascii_lowercase();
-    if lower.len() != 32 || !lower.bytes().all(|c| c.is_ascii_digit() || (b'a'..=b'f').contains(&c)) {
+    if lower.len() != 32
+        || !lower
+            .bytes()
+            .all(|c| c.is_ascii_digit() || (b'a'..=b'f').contains(&c))
+    {
         return Err(SdkError::Other(anyhow::anyhow!(
             "md5 digest is not 32 hex chars: {hex:?}"
         )));
@@ -210,7 +214,10 @@ pub(crate) fn version_from_http_date(s: &str) -> Option<String> {
     {
         return None;
     }
-    Some(format!("{year}{mon:02}{:0>2}", day.parse::<u32>().unwrap_or(0)))
+    Some(format!(
+        "{year}{mon:02}{:0>2}",
+        day.parse::<u32>().unwrap_or(0)
+    ))
 }
 
 /// MD5 of a file, lowercase hex (import-time verification).
@@ -262,7 +269,8 @@ mod tests {
             "35cff894271b8f56ddb81911dcffe089"
         );
         assert_eq!(
-            parse_md5_file("35cff894271b8f56ddb81911dcffe089 *california-latest.osm.pbf\n").unwrap(),
+            parse_md5_file("35cff894271b8f56ddb81911dcffe089 *california-latest.osm.pbf\n")
+                .unwrap(),
             "35cff894271b8f56ddb81911dcffe089"
         );
         assert!(parse_md5_file("nothex  file").is_err());

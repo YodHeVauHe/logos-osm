@@ -66,7 +66,10 @@ unsafe fn read_str<'a>(p: *const c_char) -> Result<&'a str, String> {
 }
 
 fn alloc_json<T: serde::Serialize>(v: &T) -> *mut c_char {
-    match serde_json::to_string(v).ok().and_then(|s| CString::new(s).ok()) {
+    match serde_json::to_string(v)
+        .ok()
+        .and_then(|s| CString::new(s).ok())
+    {
         Some(c) => c.into_raw(),
         None => std::ptr::null_mut(),
     }
@@ -125,7 +128,10 @@ fn build_sdk(cfg: &FfiConfig) -> Result<OsmSdk, String> {
 }
 
 fn signer_of(cfg: &FfiConfig) -> [u8; 32] {
-    let id = cfg.signer_account_id.clone().unwrap_or_else(|| "default".into());
+    let id = cfg
+        .signer_account_id
+        .clone()
+        .unwrap_or_else(|| "default".into());
     if id.len() == 64 && hex_ok(&id) {
         let mut out = [0u8; 32];
         if let Some(b) = unhex(&id) {
@@ -253,8 +259,12 @@ ffi_fn!(
                 .map_err(|e| e.to_string())?
                 .map(|e| vec![e])
                 .unwrap_or_default(),
-            "parent" => runtime().block_on(sdk.query_by_parent(value)).map_err(|e| e.to_string())?,
-            "cid" => runtime().block_on(sdk.query_by_cid(value)).map_err(|e| e.to_string())?,
+            "parent" => runtime()
+                .block_on(sdk.query_by_parent(value))
+                .map_err(|e| e.to_string())?,
+            "cid" => runtime()
+                .block_on(sdk.query_by_cid(value))
+                .map_err(|e| e.to_string())?,
             other => return Err(format!("unknown query kind: {other}")),
         };
         alloc_json(&entries)
@@ -270,7 +280,9 @@ ffi_fn!(
     {
         let cfg: FfiConfig = serde_json::from_str(cfg_json).map_err(|e| e.to_string())?;
         let sdk = build_sdk(&cfg)?;
-        let updates = runtime().block_on(sdk.check_updates()).map_err(|e| e.to_string())?;
+        let updates = runtime()
+            .block_on(sdk.check_updates())
+            .map_err(|e| e.to_string())?;
         alloc_json(&updates)
     },
     cfg_json
@@ -302,7 +314,11 @@ ffi_fn!(
     {
         let cfg: FfiConfig = serde_json::from_str(cfg_json).map_err(|e| e.to_string())?;
         let sdk = build_sdk(&cfg)?;
-        let md5_opt: Option<String> = if md5_opt.is_empty() { None } else { Some(md5_opt.to_string()) };
+        let md5_opt: Option<String> = if md5_opt.is_empty() {
+            None
+        } else {
+            Some(md5_opt.to_string())
+        };
         let entry = runtime()
             .block_on(sdk.import_local(
                 region,
@@ -346,7 +362,11 @@ mod tests {
         let ptr = unsafe { osm_discover(cfg.as_ptr()) };
         assert!(!ptr.is_null(), "discover failed: {:?}", unsafe {
             let e = osm_last_error();
-            if e.is_null() { None } else { Some(CStr::from_ptr(e).to_string_lossy().into_owned()) }
+            if e.is_null() {
+                None
+            } else {
+                Some(CStr::from_ptr(e).to_string_lossy().into_owned())
+            }
         });
         let json = unsafe { CStr::from_ptr(ptr).to_string_lossy().into_owned() };
         unsafe { osm_free(ptr) };
@@ -356,7 +376,11 @@ mod tests {
 
     #[test]
     fn version_string_ok() {
-        let v = unsafe { CStr::from_ptr(osm_sdk_version()).to_string_lossy().into_owned() };
+        let v = unsafe {
+            CStr::from_ptr(osm_sdk_version())
+                .to_string_lossy()
+                .into_owned()
+        };
         assert!(v.starts_with("logos-osm-ffi/"));
     }
 
@@ -366,7 +390,11 @@ mod tests {
         let region = CString::new("not-a-region").unwrap();
         let ptr = unsafe { osm_resolve(cfg.as_ptr(), region.as_ptr()) };
         assert!(ptr.is_null());
-        let msg = unsafe { CStr::from_ptr(osm_last_error()).to_string_lossy().into_owned() };
+        let msg = unsafe {
+            CStr::from_ptr(osm_last_error())
+                .to_string_lossy()
+                .into_owned()
+        };
         assert!(msg.contains("not in predefined set"));
     }
 

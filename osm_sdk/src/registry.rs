@@ -9,7 +9,7 @@
 use crate::error::SdkError;
 use async_trait::async_trait;
 use borsh::BorshDeserialize;
-use osm_registry_core::{Registry, RegionEntry, MAX_BATCH};
+use osm_registry_core::{RegionEntry, Registry, MAX_BATCH};
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::process::Stdio;
@@ -22,8 +22,11 @@ pub trait RegistryClient: Send + Sync {
     async fn init_registry(&self) -> Result<(), SdkError>;
     /// Upsert entries. One entry → `register_region`; more → `register_batch`.
     /// Entries must be pre-validated (`osm_registry_core::validate_entry`).
-    async fn register(&self, entries: &[RegionEntry], registered_by: [u8; 32])
-        -> Result<(), SdkError>;
+    async fn register(
+        &self,
+        entries: &[RegionEntry],
+        registered_by: [u8; 32],
+    ) -> Result<(), SdkError>;
     /// Full registry state; `None` when the PDA is not initialized yet.
     async fn fetch_all(&self) -> Result<Option<BTreeMap<String, RegionEntry>>, SdkError>;
 }
@@ -95,10 +98,7 @@ pub fn query_by_parent<'a>(
     v
 }
 
-pub fn query_by_cid<'a>(
-    map: &'a BTreeMap<String, RegionEntry>,
-    cid: &str,
-) -> Vec<&'a RegionEntry> {
+pub fn query_by_cid<'a>(map: &'a BTreeMap<String, RegionEntry>, cid: &str) -> Vec<&'a RegionEntry> {
     map.values().filter(|e| e.cid == cid).collect()
 }
 
@@ -119,7 +119,10 @@ pub struct SpelCliRegistryClient {
 impl SpelCliRegistryClient {
     fn cli_cmd(&self) -> tokio::process::Command {
         let mut c = tokio::process::Command::new(&self.cli_bin);
-        c.arg("-i").arg(&self.idl_path).arg("-p").arg(&self.program_id);
+        c.arg("-i")
+            .arg(&self.idl_path)
+            .arg("-p")
+            .arg(&self.program_id);
         c.env("LEE_WALLET_HOME_DIR", &self.wallet_home);
         c
     }
@@ -149,7 +152,11 @@ impl SpelCliRegistryClient {
         for line in text.lines() {
             let t = line.trim();
             if let Some(rest) = t.strip_prefix("PDA registry") {
-                let rest = rest.trim().trim_start_matches('\u{2192}').trim_start_matches("->").trim_start();
+                let rest = rest
+                    .trim()
+                    .trim_start_matches('\u{2192}')
+                    .trim_start_matches("->")
+                    .trim_start();
                 if let Some(addr) = rest.split_whitespace().next() {
                     return Some(addr.to_string());
                 }
@@ -182,7 +189,12 @@ impl SpelCliRegistryClient {
 impl RegistryClient for SpelCliRegistryClient {
     async fn pda(&self) -> Result<String, SdkError> {
         let mut cmd = self.cli_cmd();
-        cmd.args(["--dry-run=text", "init-registry", "--anchorer", &self.signer_account_id]);
+        cmd.args([
+            "--dry-run=text",
+            "init-registry",
+            "--anchorer",
+            &self.signer_account_id,
+        ]);
         let (stdout, stderr, ok) = Self::run(&mut cmd).await?;
         if !ok {
             return Err(SdkError::Other(anyhow::anyhow!(
@@ -220,7 +232,10 @@ impl RegistryClient for SpelCliRegistryClient {
         }
         for e in entries {
             if let Err(code) = osm_registry_core::validate_entry(e) {
-                return Err(SdkError::InvalidEntry { region: e.region.clone(), code });
+                return Err(SdkError::InvalidEntry {
+                    region: e.region.clone(),
+                    code,
+                });
             }
         }
         let by = hex::encode(registered_by);
@@ -229,16 +244,26 @@ impl RegistryClient for SpelCliRegistryClient {
             let e = &entries[0];
             cmd.args([
                 "register-region",
-                "--region", &e.region,
-                "--parent", e.parent.as_deref().unwrap_or(""),
-                "--level", &e.level.to_string(),
-                "--cid", &e.cid,
-                "--source-url", &e.source_url,
-                "--checksum", &e.checksum,
-                "--version", &e.version,
-                "--hosted", if e.hosted { "true" } else { "false" },
-                "--timestamp", &e.timestamp.to_string(),
-                "--registered-by", &by,
+                "--region",
+                &e.region,
+                "--parent",
+                e.parent.as_deref().unwrap_or(""),
+                "--level",
+                &e.level.to_string(),
+                "--cid",
+                &e.cid,
+                "--source-url",
+                &e.source_url,
+                "--checksum",
+                &e.checksum,
+                "--version",
+                &e.version,
+                "--hosted",
+                if e.hosted { "true" } else { "false" },
+                "--timestamp",
+                &e.timestamp.to_string(),
+                "--registered-by",
+                &by,
             ]);
         } else {
             if entries.len() > MAX_BATCH {
@@ -247,8 +272,10 @@ impl RegistryClient for SpelCliRegistryClient {
             let payload = batch_payload(entries)?;
             cmd.args([
                 "register-batch",
-                "--payload", &payload,
-                "--registered-by", &by,
+                "--payload",
+                &payload,
+                "--registered-by",
+                &by,
             ]);
         }
         let (stdout, stderr, ok) = Self::run(&mut cmd).await?;
@@ -266,9 +293,8 @@ impl RegistryClient for SpelCliRegistryClient {
             None => Ok(None),
             Some(bytes) if bytes.is_empty() => Ok(None),
             Some(bytes) => {
-                let reg = Registry::try_from_slice(&bytes).map_err(|e| {
-                    SdkError::Other(anyhow::anyhow!("registry borsh decode: {e}"))
-                })?;
+                let reg = Registry::try_from_slice(&bytes)
+                    .map_err(|e| SdkError::Other(anyhow::anyhow!("registry borsh decode: {e}")))?;
                 Ok(Some(reg.entries))
             }
         }
@@ -342,7 +368,10 @@ impl RegistryClient for MockRegistryClient {
         let map = st.get_or_insert_with(BTreeMap::new);
         for e in entries {
             if let Err(code) = osm_registry_core::validate_entry(e) {
-                return Err(SdkError::InvalidEntry { region: e.region.clone(), code });
+                return Err(SdkError::InvalidEntry {
+                    region: e.region.clone(),
+                    code,
+                });
             }
             map.insert(e.region.clone(), e.clone());
         }
@@ -376,7 +405,10 @@ mod tests {
 
     #[test]
     fn batch_payload_roundtrip() {
-        let entries = vec![entry("germany", None, 1), entry("us/california", Some("us"), 2)];
+        let entries = vec![
+            entry("germany", None, 1),
+            entry("us/california", Some("us"), 2),
+        ];
         let hex_str = batch_payload(&entries).unwrap();
         let back = parse_batch_payload(&hex_str).unwrap();
         assert_eq!(back, entries);
@@ -390,9 +422,18 @@ mod tests {
     #[test]
     fn query_by_parent_filters_and_sorts_by_timestamp() {
         let mut map = BTreeMap::new();
-        map.insert("india/southern-zone".into(), entry("india/southern-zone", Some("india"), 30));
-        map.insert("india/central-zone".into(), entry("india/central-zone", Some("india"), 10));
-        map.insert("india/western-zone".into(), entry("india/western-zone", Some("india"), 20));
+        map.insert(
+            "india/southern-zone".into(),
+            entry("india/southern-zone", Some("india"), 30),
+        );
+        map.insert(
+            "india/central-zone".into(),
+            entry("india/central-zone", Some("india"), 10),
+        );
+        map.insert(
+            "india/western-zone".into(),
+            entry("india/western-zone", Some("india"), 20),
+        );
         map.insert("germany".into(), entry("germany", None, 5));
         let v = query_by_parent(&map, "india");
         assert_eq!(
@@ -415,9 +456,15 @@ mod tests {
     async fn mock_client_registers_and_fetches() {
         let mock = MockRegistryClient::new();
         mock.init_registry().await.unwrap();
-        mock.register(&[entry("germany", None, 1)], [0u8; 32]).await.unwrap();
+        mock.register(&[entry("germany", None, 1)], [0u8; 32])
+            .await
+            .unwrap();
         mock.register(
-            &[entry("a", None, 2), entry("b", None, 3), entry("c", None, 4)],
+            &[
+                entry("a", None, 2),
+                entry("b", None, 3),
+                entry("c", None, 4),
+            ],
             [0u8; 32],
         )
         .await
@@ -430,11 +477,15 @@ mod tests {
     #[test]
     fn parse_pda_line_variants() {
         assert_eq!(
-            SpelCliRegistryClient::parse_pda_line("PDA registry \u{2192} HvCtoPL6RvYmqg8m7qkRqu4e2b1dHt4XsU2dz8eixdwe"),
+            SpelCliRegistryClient::parse_pda_line(
+                "PDA registry \u{2192} HvCtoPL6RvYmqg8m7qkRqu4e2b1dHt4XsU2dz8eixdwe"
+            ),
             Some("HvCtoPL6RvYmqg8m7qkRqu4e2b1dHt4XsU2dz8eixdwe".into())
         );
         assert_eq!(
-            SpelCliRegistryClient::parse_pda_line("PDA registry -> SomeAddr22222222222222222222222222222"),
+            SpelCliRegistryClient::parse_pda_line(
+                "PDA registry -> SomeAddr22222222222222222222222222222"
+            ),
             Some("SomeAddr22222222222222222222222222222".into())
         );
         assert_eq!(SpelCliRegistryClient::parse_pda_line("nothing here"), None);
@@ -442,7 +493,11 @@ mod tests {
 
     #[test]
     fn parse_account_get_json_variants() {
-        assert!(SpelCliRegistryClient::parse_account_get_json("Account is Uninitialized").unwrap().is_none());
+        assert!(
+            SpelCliRegistryClient::parse_account_get_json("Account is Uninitialized")
+                .unwrap()
+                .is_none()
+        );
         let j = r#"$ lgs wallet account get
 {
   "data": "010203",
