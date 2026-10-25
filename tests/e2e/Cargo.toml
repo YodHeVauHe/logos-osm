@@ -1,0 +1,23 @@
+[package]
+name = "osm_e2e"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+publish = false
+
+[lib]
+path = "src/lib.rs"
+
+[features]
+e2e = []
+
+[dependencies]
+osm_registry_core = { workspace = true }
+osm_sdk = { path = "../../osm_sdk", features = ["test-util"] }
+tokio = { workspace = true }
+hex = { workspace = true }
+md-5 = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+wiremock = { workspace = true }

@@ -4,6 +4,7 @@ members = [
     "osm_sdk",
     "osm_cli",
     "ffi",
+    "tests/e2e",
 ]
 exclude = [
     "methods",

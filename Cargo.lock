@@ -894,6 +894,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "osm_e2e"
+version = "0.1.0"
+dependencies = [
+ "hex",
+ "md-5",
+ "osm_registry_core",
+ "osm_sdk",
+ "tempfile",
+ "tokio",
+ "wiremock",
+]
+
+[[package]]
 name = "osm_ffi"
 version = "0.1.0"
 dependencies = [

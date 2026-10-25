@@ -1,0 +1,114 @@
+# OSM registry SDK
+
+`osm_sdk` is the single Rust crate behind the CLI, the C FFI, and the
+Basecamp module. It has two faces:
+
+- **Consumer face** — discover regions, resolve a region to its CID and
+  metadata, query by region/parent/CID, and download. This is the subset
+  other Basecamp apps need; it is what the published `osm` module exposes.
+- **Distribution face** — host (fetch → verify → store → register), bulk
+  host in one batch transaction, local import with Geofabrik-MD5
+  verification, and update checks.
+
+## The region model
+
+`regions::predefined()` returns the frozen, non-overlapping 72-region set
+(embedded from `regions.json`). Each `RegionDef` carries the Geofabrik
+index id, the canonical `*-latest.osm.pbf` URL (parent-chain based —
+`india/central-zone` downloads from `.../asia/india/central-zone-...`), and
+the level/parent encoding that round-trips into an on-chain `RegionEntry`.
+
+Two frozen set members have no standalone Geofabrik extract:
+
+| registry key | Geofabrik extract used |
+|---|---|
+| `ireland` | `ireland-and-northern-ireland` |
+| `malaysia` | `malaysia-singapore-brunei` |
+
+Registry keys stay exactly as frozen in the prize document; only the
+URL/checksum resolution maps through the combined extract.
+
+## Worked example: resolve a region to its CID and metadata
+
+The integration path most Basecamp consumers take:
+
+```rust
+use osm_sdk::registry::{MockRegistryClient, RegistryClient}; // or SpelCliRegistryClient
+use osm_sdk::storage::InMemoryStorage;                      // or LogoscoreStorage
+use osm_sdk::OsmSdk;
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let sdk = OsmSdk::new(
+        Box::new(InMemoryStorage::new()),     // downloads don't need storage
+        Box::new(SpelCliRegistryClient { /* program id, idl, lgs paths */ }),
+    );
+
+    // 1. Is `us/california` registered? What are its CID and version?
+    match sdk.resolve("us/california").await? {
+        Some(entry) => {
+            println!("region:   {}", entry.region);
+            println!("cid:      {}", entry.cid);          // Logos Storage CID
+            println!("version:  {}", entry.version);     // Geofabrik YYMMDD
+            println!("checksum: {}", entry.checksum);    // Geofabrik MD5
+            println!("hosted:   {}", entry.hosted);
+            if entry.hosted {
+                // 2. Download by CID — integrity is guaranteed by the
+                //    content address; no Geofabrik round-trip required.
+                let report = sdk.download_region("us/california", "./downloads".as_ref()).await?;
+                println!("{} bytes from {:?}, verified={}", report.bytes, report.source, report.verified);
+            }
+        }
+        None => println!("us/california is not hosted yet"),
+    }
+
+    // Query facets
+    let zones = sdk.query_by_parent("india").await?;       // all 6 India zones
+    let by_cid = sdk.query_by_cid(&zones[0].cid).await?;   // CID → region(s)
+
+    // Full set with fresh Geofabrik URLs (network)
+    // sdk.discover_refreshed(&fetch_index_json())?;
+
+    Ok(())
+}
+```
+
+`resolve` on an unregistered predefined region returns `Ok(None)`; asking
+for a region outside the frozen set is `Err(SdkError::UnknownRegion)`.
+
+## Hosting (distribution face)
+
+```rust
+// One region: download → verify Geofabrik MD5 → store → register_region.
+let entry = sdk.host_region("germany", signer, HostOpts::default()).await?;
+
+// Bulk: N regions verified+stored, then ONE register_batch transaction.
+let report = sdk.host_regions(
+    &["germany".into(), "us/california".into(), "india/central-zone".into()],
+    signer,
+    HostOpts::default(),
+).await?;   // report.skipped carries per-region failures
+
+// Local import: verify a provided PBF against Geofabrik's published MD5,
+// store, register by CID.
+let entry = sdk.import_local("kenya", "./kenya-latest.osm.pbf".as_ref(), signer,
+                             HostOpts::default(), None).await?;
+
+// Updates: per-region central-version comparison (matched on region path).
+for u in sdk.check_updates().await? {
+    println!("{}: registry={} geofabrik={}", u.region, u.registry_version, u.central_version);
+}
+```
+
+## Backends
+
+| Concern | Production | Tests / dev |
+|---|---|---|
+| Storage | `LogoscoreStorage` (drives the headless `logoscore` binary with `storage_module`) | `InMemoryStorage` |
+| Registry client | `SpelCliRegistryClient` (SPEL-generated `osm_registry_cli` for txs, `lgs wallet` for account reads) | `MockRegistryClient` (feature `test-util`) |
+| Geofabrik | real service | `set_url_rewrite(base)` → wiremock or a mirror |
+
+Retries: downloads and storage uploads retry with exponential back-off
+(1s, 2s, 4s … capped 30s) and surface `SdkError::RetriesExhausted` with the
+full context after the last attempt. Checksum mismatches fail fast with
+`ChecksumMismatch { expected, actual }` and never register anything.

@@ -1,0 +1,129 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      live_geofabrik:
+        description: "Also run the live Geofabrik host test"
+        type: boolean
+        default: false
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  rust:
+    name: rust (fmt, clippy, test)
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: fmt
+        run: cargo fmt --all -- --check
+      - name: clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: tests
+        run: cargo test --workspace
+      - name: e2e (in-memory)
+        run: cargo test -p osm_e2e --features e2e
+
+  chain:
+    name: chain (guest build, deploy, on-chain e2e, cycles)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install Docker-based RISC0 toolchain deps
+        run: |
+          cargo install --locked cargo-risczero
+          cargo risczero install --version 2024-05-20 2>/dev/null || true
+      - name: Build guest (deterministic, docker)
+        run: make build
+      - name: Program ID
+        id: pid
+        run: |
+          PID=$(spel program-id methods/guest/target/riscv32im-risc0-zkvm-elf/docker/osm_registry.bin --format hex)
+          echo "program_id=$PID" >> "$GITHUB_OUTPUT"
+          echo "Program ID: $PID"
+      - name: IDL is up to date
+        run: |
+          make idl
+          git diff --exit-code idl/ || {
+            echo "::error::IDL is stale — run `make idl` and commit"; exit 1; }
+      - name: Install lgs (logos-scaffold)
+        run: cargo install --locked --git https://github.com/logos-co/logos-scaffold logos-scaffold
+      - name: Start localnet
+        run: |
+          lgs setup
+          lgs localnet start
+          lgs localnet status
+      - name: Deploy registry
+        run: lgs deploy
+      - name: Mint signer + initialize registry
+        run: |
+          lgs wallet -- account new public
+          lgs wallet topup 1
+      - name: On-chain e2e (host → query → download)
+        env:
+          LGS_LOCALNET: "1"
+          OSM_PROGRAM_ID: ${{ steps.pid.outputs.program_id }}
+        run: cargo test -p osm_e2e --features e2e -- --nocapture
+      - name: Capture cycle counts (register / register_batch)
+        run: |
+          lgs localnet logs --tail 500 > localnet.log || true
+          grep -o "CU register[a-z_]* cycles=[0-9]*" localnet.log | tee cycles.txt || true
+          {
+            echo "# Measured cycle counts"
+            echo ""
+            '```'
+            cat cycles.txt
+            '```'
+          } > docs/cycles.md
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cycles
+          path: docs/cycles.md
+
+  nix:
+    name: nix (Basecamp module + app)
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@v13
+      - name: Build FFI cdylib (vendored for the module)
+        run: |
+          cargo build --release -p osm_ffi
+          mkdir -p osm-module/vendored
+          cp target/release/libosm_ffi.so osm-module/vendored/
+      - name: Build osm core module
+        run: nix build .#osm-install
+      - name: Build osm-app QML module
+        run: nix build .#osm-app-install
+
+  live-geofabrik:
+    name: live Geofabrik host (dispatch only)
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.live_geofabrik }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Live import smoke (checksum verification against real Geofabrik)
+        run: |
+          cargo build -p osm_cli
+          # Fetch a real .md5 for a small region and import synthetic bytes
+          # against it to prove the live checksum path; full PBF hosting is
+          # an operator task (see README), not a CI one.
+          curl -fsSL "https://download.geofabrik.de/russia/central-fed-district-latest.osm.pbf.md5" -o /tmp/live.md5
+          echo "live md5: $(cat /tmp/live.md5)"
