@@ -5,5 +5,27 @@ edition.workspace = true
 license.workspace = true
 description = "OSM registry SDK for Logos Basecamp (LP-0018)"
 
+[features]
+default = []
+# Exposes test doubles (MockRegistryClient) for downstream integration tests.
+test-util = []
+
 [dependencies]
 osm_registry_core = { workspace = true }
+borsh = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+tokio = { workspace = true }
+reqwest = { workspace = true }
+md-5 = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
+async-trait = { workspace = true }
+tracing = { workspace = true }
+futures-util = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+wiremock = { workspace = true }

@@ -1,0 +1,22 @@
+[package]
+name = "osm_registry-guest"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+
+[workspace]
+
+[[bin]]
+name = "osm_registry"
+path = "src/bin/osm_registry.rs"
+
+[dependencies]
+spel-framework      = { git = "https://github.com/logos-co/spel.git", rev = "c6f73ce21e4805f8430f03afdbdedf0b7e479a5e" }
+lee_core            = { git = "https://github.com/logos-blockchain/logos-execution-zone.git", rev = "27360cb7d6ccb2bfbcca7d171bab8a3938490264", features = ["host"] }
+risc0-zkvm          = { version = "=3.0.5", features = ["std"] }
+osm_registry_core   = { path = "../../osm_registry_core" }
+borsh               = { version = "1", features = ["derive"] }
+serde               = { version = "1", features = ["derive"] }
+ruint               = "=1.17.0"
+enum-ordinalize        = "=4.3.2"
+enum-ordinalize-derive = "=4.3.2"

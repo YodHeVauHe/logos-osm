@@ -1,0 +1,200 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "germany",
+        "parent": "europe",
+        "iso3166-1:alpha2": ["DE"],
+        "name": "Germany",
+        "urls": {
+          "pbf": "https://download.geofabrik.de/europe/germany-latest.osm.pbf",
+          "shp": "https://download.geofabrik.de/europe/germany-latest-free.shp.zip",
+          "updates": "https://download.geofabrik.de/europe/germany-updates"
+        }
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "ireland-and-northern-ireland",
+        "parent": "europe",
+        "name": "Ireland and Northern Ireland",
+        "urls": {
+          "pbf": "https://download.geofabrik.de/europe/ireland-and-northern-ireland-latest.osm.pbf",
+          "updates": "https://download.geofabrik.de/europe/ireland-and-northern-ireland-updates"
+        }
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "malaysia-singapore-brunei",
+        "parent": "asia",
+        "name": "Malaysia, Singapore, and Brunei",
+        "urls": {
+          "pbf": "https://download.geofabrik.de/asia/malaysia-singapore-brunei-latest.osm.pbf",
+          "updates": "https://download.geofabrik.de/asia/malaysia-singapore-brunei-updates"
+        }
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "us",
+        "parent": "north-america",
+        "iso3166-1:alpha2": ["US"],
+        "name": "United States of America",
+        "urls": {
+          "pbf": "https://download.geofabrik.de/north-america/us-latest.osm.pbf",
+          "updates": "https://download.geofabrik.de/north-america/us-updates"
+        }
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "us/california",
+        "parent": "north-america",
+        "iso3166-2": ["US-CA"],
+        "name": "us/california",
+        "urls": {
+          "pbf": "https://download.geofabrik.de/north-america/us/california-latest.osm.pbf",
+          "pbf-internal": "https://osm-internal.download.geofabrik.de/north-america/us/california-latest-internal.osm.pbf",
+          "history": "https://osm-internal.download.geofabrik.de/north-america/us/california-internal.osh.pbf",
+          "taginfo": "https://taginfo.geofabrik.de/north-america:us:california",
+          "updates": "https://download.geofabrik.de/north-america/us/california-updates"
+        }
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "us/texas",
+        "parent": "north-america",
+        "iso3166-2": ["US-TX"],
+        "name": "us/texas",
+        "urls": {
+          "pbf": "https://download.geofabrik.de/north-america/us/texas-latest.osm.pbf",
+          "updates": "https://download.geofabrik.de/north-america/us/texas-updates"
+        }
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "india",
+        "parent": "asia",
+        "iso3166-1:alpha2": ["IN"],
+        "name": "India",
+        "urls": {
+          "pbf": "https://download.geofabrik.de/asia/india-latest.osm.pbf",
+          "updates": "https://download.geofabrik.de/asia/india-updates"
+        }
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "central-zone",
+        "parent": "india",
+        "name": "Central Zone",
+        "urls": {
+          "pbf": "https://download.geofabrik.de/asia/india/central-zone-latest.osm.pbf",
+          "shp": "https://download.geofabrik.de/asia/india/central-zone-latest-free.shp.zip",
+          "pbf-internal": "https://osm-internal.download.geofabrik.de/asia/india/central-zone-latest-internal.osm.pbf",
+          "history": "https://osm-internal.download.geofabrik.de/asia/india/central-zone-internal.osh.pbf",
+          "taginfo": "https://taginfo.geofabrik.de/asia:india:central-zone",
+          "updates": "https://download.geofabrik.de/asia/india/central-zone-updates"
+        }
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "northern-zone",
+        "parent": "india",
+        "name": "Northern Zone",
+        "urls": {
+          "pbf": "https://download.geofabrik.de/asia/india/northern-zone-latest.osm.pbf",
+          "updates": "https://download.geofabrik.de/asia/india/northern-zone-updates"
+        }
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "china",
+        "parent": "asia",
+        "iso3166-1:alpha2": ["CN"],
+        "name": "China",
+        "urls": {
+          "pbf": "https://download.geofabrik.de/asia/china-latest.osm.pbf",
+          "updates": "https://download.geofabrik.de/asia/china-updates"
+        }
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "guangdong",
+        "parent": "china",
+        "name": "Guangdong (with Hong Kong and Macau)",
+        "urls": {
+          "pbf": "https://download.geofabrik.de/asia/china/guangdong-latest.osm.pbf",
+          "updates": "https://download.geofabrik.de/asia/china/guangdong-updates"
+        }
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "russia",
+        "parent": null,
+        "iso3166-1:alpha2": ["RU"],
+        "name": "Russian Federation",
+        "urls": {
+          "pbf": "https://download.geofabrik.de/russia-latest.osm.pbf",
+          "updates": "https://download.geofabrik.de/russia-updates"
+        }
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "central-fed-district",
+        "parent": "russia",
+        "name": "Central Federal District",
+        "urls": {
+          "pbf": "https://download.geofabrik.de/russia/central-fed-district-latest.osm.pbf",
+          "updates": "https://download.geofabrik.de/russia/central-fed-district-updates"
+        }
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "australia",
+        "parent": "australia-oceania",
+        "iso3166-1:alpha2": ["AU"],
+        "name": "Australia",
+        "urls": {
+          "pbf": "https://download.geofabrik.de/australia-oceania/australia-latest.osm.pbf",
+          "updates": "https://download.geofabrik.de/australia-oceania/australia-updates"
+        }
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "no-pbf-region",
+        "parent": "europe",
+        "name": "Index entry without a pbf url",
+        "urls": {
+          "shp": "https://download.geofabrik.de/europe/no-pbf-region-latest-free.shp.zip"
+        }
+      }
+    }
+  ]
+}

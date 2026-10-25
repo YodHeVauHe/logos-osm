@@ -7,3 +7,13 @@ description = "C ABI bridge over the OSM SDK for Basecamp modules"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+osm_registry_core = { workspace = true }
+osm_sdk = { path = "../osm_sdk" }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }

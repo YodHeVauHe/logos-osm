@@ -1,0 +1,15 @@
+[workspace]
+
+[package]
+name = "tools"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+
+[[bin]]
+name = "mk-program-binary"
+path = "src/mk_program_binary.rs"
+
+[dependencies]
+risc0-binfmt = "=3.0.4"
+risc0-zkos-v1compat = "=2.2.2"

@@ -27,12 +27,14 @@ thiserror = "2"
 anyhow = "1"
 tokio = { version = "1", features = ["full"] }
 clap = { version = "4", features = ["derive", "env"] }
-reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "stream"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "stream", "blocking"] }
 md-5 = "0.10"
 sha2 = "0.10"
 hex = "0.4"
 async-trait = "0.1"
 tracing = "0.1"
+futures-util = "0.3"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tempfile = "3"
+toml = "0.8"
 wiremock = "0.6"
