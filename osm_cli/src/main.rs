@@ -267,7 +267,7 @@ async fn run(cli: Cli) -> i32 {
             if json {
                 print_json(&defs);
             } else {
-                println!("{:<28} {:<10} {:<9} {}", "REGION", "PARENT", "LEVEL", "URL");
+                println!("{:<28} {:<10} {:<9} URL", "REGION", "PARENT", "LEVEL");
                 for d in &defs {
                     println!(
                         "{:<28} {:<10} {:<9} {}",
@@ -326,7 +326,7 @@ async fn run(cli: Cli) -> i32 {
                 Err(e) => return fail(&e),
             };
             match sdk
-                .import_local(&region, &file, signer, HostOpts::default(), md5.clone())
+                .import_local(region, file, signer, HostOpts::default(), md5.clone())
                 .await
             {
                 Ok(e) => {

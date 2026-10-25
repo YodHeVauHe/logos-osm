@@ -130,7 +130,7 @@ impl OsmSdk {
             .host_one(region, &tmp.path().join("r.pbf"), &opts)
             .await?;
         entry.registered_by = signer;
-        self.registry.register(&[entry.clone()], signer).await?;
+        self.registry.register(std::slice::from_ref(&entry), signer).await?;
         Ok(entry)
     }
 
@@ -275,7 +275,7 @@ impl OsmSdk {
         };
         osm_registry_core::validate_entry(&entry)
             .map_err(|code| SdkError::InvalidEntry { region: region.to_string(), code })?;
-        self.registry.register(&[entry.clone()], signer).await?;
+        self.registry.register(std::slice::from_ref(&entry), signer).await?;
         Ok(entry)
     }
 

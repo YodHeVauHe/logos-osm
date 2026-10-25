@@ -11,7 +11,7 @@ use async_trait::async_trait;
 use borsh::BorshDeserialize;
 use osm_registry_core::{Registry, RegionEntry, MAX_BATCH};
 use std::collections::BTreeMap;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process::Stdio;
 
 #[async_trait]

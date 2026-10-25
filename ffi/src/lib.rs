@@ -63,7 +63,6 @@ unsafe fn read_str<'a>(p: *const c_char) -> Result<&'a str, String> {
     CStr::from_ptr(p)
         .to_str()
         .map_err(|e| format!("invalid utf-8 argument: {e}"))
-        .map(|s| s)
 }
 
 fn alloc_json<T: serde::Serialize>(v: &T) -> *mut c_char {
@@ -146,7 +145,7 @@ fn hex_ok(s: &str) -> bool {
 }
 
 fn unhex(s: &str) -> Option<Vec<u8>> {
-    if s.len() % 2 != 0 {
+    if !s.len().is_multiple_of(2) {
         return None;
     }
     (0..s.len())
@@ -156,12 +155,19 @@ fn unhex(s: &str) -> Option<Vec<u8>> {
 }
 
 macro_rules! ffi_fn {
+    // Every generated function is `unsafe extern "C"`: it dereferences the
+    // caller's C string pointers. The safety contract is identical for all
+    // of them, so it is stated once here and in the module docs.
     ($name:ident, $body:expr, $($arg:ident),*) => {
+        /// # Safety
+        ///
+        /// All string arguments must be valid NUL-terminated UTF-8 C strings
+        /// (or NULL, which is rejected) and must outlive the call.
         #[no_mangle]
-        pub extern "C" fn $name($($arg: *const c_char),*) -> *mut c_char {
+        pub unsafe extern "C" fn $name($($arg: *const c_char),*) -> *mut c_char {
             LAST_ERROR.with(|l| *l.borrow_mut() = None);
             let result = (|| -> Result<*mut c_char, String> {
-                $(let $arg = unsafe { read_str($arg)? };)*
+                $(let $arg = read_str($arg)?;)*
                 let f = $body;
                 Ok(f)
             })();
@@ -184,6 +190,12 @@ pub extern "C" fn osm_sdk_version() -> *const c_char {
 }
 
 /// Free a string returned by any osm_* function.
+///
+/// # Safety
+///
+/// `ptr` must be a pointer returned by an `osm_*` function in this crate,
+/// and must not be used after this call. Passing any other pointer is
+/// undefined behavior.
 #[no_mangle]
 pub unsafe extern "C" fn osm_free(ptr: *mut c_char) {
     if !ptr.is_null() {
@@ -202,7 +214,7 @@ pub extern "C" fn osm_last_error() -> *const c_char {
     })
 }
 
-/// The 72 predefined regions: JSON array of RegionDef.
+// The 72 predefined regions: JSON array of RegionDef.
 ffi_fn!(
     osm_discover,
     {
@@ -214,7 +226,7 @@ ffi_fn!(
     cfg_json
 );
 
-/// Resolve one region to its registry entry (or JSON null).
+// Resolve one region to its registry entry (or JSON null).
 ffi_fn!(
     osm_resolve,
     {
@@ -229,7 +241,7 @@ ffi_fn!(
     region
 );
 
-/// Query entries: kind ∈ {"region","parent","cid"}.
+// Query entries: kind ∈ {"region","parent","cid"}.
 ffi_fn!(
     osm_query,
     {
@@ -252,7 +264,7 @@ ffi_fn!(
     value
 );
 
-/// Check for available updates (HostReport-style RegionUpdate list).
+// Check for available updates (RegionUpdate list).
 ffi_fn!(
     osm_check_updates,
     {
@@ -264,7 +276,7 @@ ffi_fn!(
     cfg_json
 );
 
-/// Bulk host: regions_csv is a comma-separated list of region paths.
+// Bulk host: regions_csv is a comma-separated list of region paths.
 ffi_fn!(
     osm_host,
     {
@@ -284,7 +296,7 @@ ffi_fn!(
     regions_csv
 );
 
-/// Import a local PBF with optional md5 override.
+// Import a local PBF with optional md5 override.
 ffi_fn!(
     osm_import,
     {
@@ -308,7 +320,7 @@ ffi_fn!(
     md5_opt
 );
 
-/// Download a region (storage by CID, else Geofabrik fallback).
+// Download a region (storage by CID, else Geofabrik fallback).
 ffi_fn!(
     osm_download,
     {
@@ -331,7 +343,7 @@ mod tests {
     #[test]
     fn discover_json_roundtrip() {
         let cfg = CString::new("{}").unwrap();
-        let ptr = osm_discover(cfg.as_ptr());
+        let ptr = unsafe { osm_discover(cfg.as_ptr()) };
         assert!(!ptr.is_null(), "discover failed: {:?}", unsafe {
             let e = osm_last_error();
             if e.is_null() { None } else { Some(CStr::from_ptr(e).to_string_lossy().into_owned()) }
@@ -352,7 +364,7 @@ mod tests {
     fn resolve_memory_mode_returns_null_for_unknown() {
         let cfg = CString::new("{\"storage\":\"memory\"}").unwrap();
         let region = CString::new("not-a-region").unwrap();
-        let ptr = osm_resolve(cfg.as_ptr(), region.as_ptr());
+        let ptr = unsafe { osm_resolve(cfg.as_ptr(), region.as_ptr()) };
         assert!(ptr.is_null());
         let msg = unsafe { CStr::from_ptr(osm_last_error()).to_string_lossy().into_owned() };
         assert!(msg.contains("not in predefined set"));
@@ -362,7 +374,7 @@ mod tests {
     fn resolve_memory_mode_returns_null_when_unregistered() {
         let cfg = CString::new("{\"storage\":\"memory\"}").unwrap();
         let region = CString::new("germany").unwrap();
-        let ptr = osm_resolve(cfg.as_ptr(), region.as_ptr());
+        let ptr = unsafe { osm_resolve(cfg.as_ptr(), region.as_ptr()) };
         // resolves to JSON `null` (registered=none) — not an error
         assert!(!ptr.is_null());
         let json = unsafe { CStr::from_ptr(ptr).to_string_lossy().into_owned() };

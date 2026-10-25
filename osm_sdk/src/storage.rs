@@ -8,10 +8,8 @@
 use crate::error::SdkError;
 use crate::geofabrik::backoff_delays;
 use async_trait::async_trait;
-use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::time::Duration;
 use tokio::io::AsyncReadExt;
 use tokio::sync::Mutex;
 
@@ -45,9 +43,11 @@ impl<T: StorageBackend + ?Sized> StorageBackend for std::sync::Arc<T> {
 
 // ── In-memory test double ─────────────────────────────────────────────────
 
+type ObjectMap = std::collections::HashMap<String, (Vec<u8>, String)>;
+
 #[derive(Default, Clone)]
 pub struct InMemoryStorage {
-    objects: Arc<Mutex<HashMap<String, (Vec<u8>, String)>>>,
+    objects: Arc<Mutex<ObjectMap>>,
     counter: Arc<Mutex<u64>>,
 }
 

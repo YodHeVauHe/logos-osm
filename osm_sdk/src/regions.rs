@@ -212,5 +212,6 @@ mod tests {
 
 /// Test fixtures shared by unit and integration tests.
 pub(crate) mod tests_fixture {
+    #[allow(dead_code)]
     pub const INDEX_SAMPLE: &str = include_str!("../tests/fixtures/geofabrik-index-sample.json");
 }
