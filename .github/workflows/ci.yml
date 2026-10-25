@@ -107,8 +107,8 @@ jobs:
       - name: Build FFI cdylib (vendored for the module)
         run: |
           cargo build --release -p osm_ffi
-          mkdir -p osm-module/vendored
-          cp target/release/libosm_ffi.so osm-module/vendored/
+          mkdir -p osm-module/lib
+          cp target/release/libosm_ffi.so osm-module/lib/
       - name: Build osm core module
         run: nix build .#osm-install
       - name: Build osm-app QML module

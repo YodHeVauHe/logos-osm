@@ -2,7 +2,7 @@ GUEST_SRC   := methods/guest/src/bin/osm_registry.rs
 GUEST_ELF   := methods/guest/target/riscv32im-risc0-zkvm-elf/docker/osm_registry
 GUEST_BIN   := methods/guest/target/riscv32im-risc0-zkvm-elf/docker/osm_registry.bin
 IDL         := idl/osm-registry.idl.json
-FFI_SO      := osm-module/vendored/libosm_ffi.so
+FFI_SO      := osm-module/lib/libosm_ffi.so
 
 .PHONY: build ffi idl cli deploy inspect fmt clippy test clean all
 
@@ -23,7 +23,7 @@ build:
 # Build the Rust FFI cdylib used by osm-module (Basecamp core module).
 ffi:
 	cd ffi && cargo build --release
-	mkdir -p osm-module/vendored
+	mkdir -p osm-module/lib
 	cp ffi/target/release/libosm_ffi.so $(FFI_SO)
 	@echo "FFI built: $(FFI_SO)"
 

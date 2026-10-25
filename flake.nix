@@ -15,14 +15,12 @@
       # (cargo build --release in ./ffi) and vendored into osm-module.
       # If the file doesn't exist, nix eval fails with a clear message.
       ffiLib = ./osm-module/vendored/libosm_ffi.so;
+      # libosm_ffi.so is vendored in osm-module/lib/ (git-tracked) and
+      # linked via metadata.json nix.external_libraries (vendor_path "lib").
       osmModule = logos-module-builder.lib.mkLogosModule {
         src = ./osm-module;
         configFile = ./osm-module/metadata.json;
         flakeInputs = inputs;
-        postInstall = ''
-          mkdir -p $out/lib
-          cp ${ffiLib} $out/lib/libosm_ffi.so
-        '';
       };
 
       osmAppModule = logos-module-builder.lib.mkLogosQmlModule {

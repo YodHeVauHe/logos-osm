@@ -82,14 +82,14 @@ void OsmAppPlugin::setLastVerification(const QString& v) {
 }
 
 void OsmAppPlugin::refresh() {
-    const QJsonObject d = callModule("discoverJson", {});
+    const QJsonObject d = callModule("discover", {});
     if (!d.isEmpty()) setRegions(QString::fromUtf8(QJsonDocument(d).toJson(QJsonDocument::Compact)));
 
     // The registry snapshot: query by empty parent is not valid, so the app
     // reads the whole registry via the module's query face per level.
     QJsonObject entries;
     QJsonArray all;
-    const QJsonObject countries = callModule("queryJson", {QStringLiteral("parent"), QStringLiteral("")});
+    const QJsonObject countries = callModule("query", {QStringLiteral("parent"), QStringLiteral("")});
     Q_UNUSED(countries);
     // Consumers typically resolve per region; the bulk view uses discover +
     // per-region resolve on demand in the QML layer.
@@ -98,7 +98,7 @@ void OsmAppPlugin::refresh() {
 
 void OsmAppPlugin::checkUpdates() {
     setPhase(QStringLiteral("checking"));
-    const QJsonObject u = callModule("checkUpdatesJson", {});
+    const QJsonObject u = callModule("checkUpdates", {});
     setUpdates(QString::fromUtf8(QJsonDocument(u).toJson(QJsonDocument::Compact)));
     setPhase(QStringLiteral("idle"));
 }
@@ -107,7 +107,7 @@ void OsmAppPlugin::hostRegions(const QString& regionsCsv) {
     setWorking(true);
     setPhase(QStringLiteral("hosting"));
     setStatus(QStringLiteral("hosting %1…").arg(regionsCsv));
-    const QJsonObject r = callModule("hostRegionsJson", {regionsCsv});
+    const QJsonObject r = callModule("hostRegions", {regionsCsv});
     setWorking(false);
     setPhase(r.isEmpty() ? QStringLiteral("error") : QStringLiteral("idle"));
     setStatus(r.isEmpty() ? QStringLiteral("host failed — see osm module logs")
@@ -120,7 +120,7 @@ void OsmAppPlugin::importRegion(const QString& region, const QString& filePath,
     setWorking(true);
     setPhase(QStringLiteral("importing"));
     setStatus(QStringLiteral("importing %1…").arg(region));
-    const QJsonObject r = callModule("importRegionJson", {region, filePath, md5Override});
+    const QJsonObject r = callModule("importRegion", {region, filePath, md5Override});
     setWorking(false);
     setLastVerification(r.isEmpty() ? QStringLiteral("MISMATCH") : QStringLiteral("verified"));
     setPhase(r.isEmpty() ? QStringLiteral("error") : QStringLiteral("idle"));
@@ -133,7 +133,7 @@ void OsmAppPlugin::downloadRegion(const QString& region, const QString& destDir)
     setWorking(true);
     setPhase(QStringLiteral("downloading"));
     setStatus(QStringLiteral("downloading %1…").arg(region));
-    const QJsonObject r = callModule("downloadRegionJson", {region, destDir});
+    const QJsonObject r = callModule("downloadRegion", {region, destDir});
     setWorking(false);
     setLastVerification(r.isEmpty() ? QStringLiteral("MISMATCH") : QStringLiteral("verified"));
     setPhase(r.isEmpty() ? QStringLiteral("error") : QStringLiteral("idle"));

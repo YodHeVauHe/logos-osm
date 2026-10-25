@@ -11,7 +11,7 @@ name = "osm_registry"
 path = "src/bin/osm_registry.rs"
 
 [dependencies]
-spel-framework      = { git = "https://github.com/logos-co/spel.git", rev = "c6f73ce21e4805f8430f03afdbdedf0b7e479a5e" }
+spel-framework      = { path = "../../vendor/spel-framework/spel-framework" }
 lee_core            = { git = "https://github.com/logos-blockchain/logos-execution-zone.git", rev = "27360cb7d6ccb2bfbcca7d171bab8a3938490264", features = ["host"] }
 risc0-zkvm          = { version = "=3.0.5", features = ["std"] }
 osm_registry_core   = { path = "../../osm_registry_core" }
