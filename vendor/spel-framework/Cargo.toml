@@ -1,0 +1,13 @@
+[workspace]
+members = [
+    "spel-framework",
+    "spel-framework-core",
+    "spel-framework-macros",
+    "spel-client-gen",
+]
+exclude = [
+    "spel-cli",
+    "spel-ffi-compile-test",
+    "tests/e2e/fixture_program",
+]
+resolver = "2"
