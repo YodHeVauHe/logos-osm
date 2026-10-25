@@ -1,0 +1,9 @@
+[package]
+name = "osm_sdk"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "OSM registry SDK for Logos Basecamp (LP-0018)"
+
+[dependencies]
+osm_registry_core = { workspace = true }

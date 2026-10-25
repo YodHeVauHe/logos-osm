@@ -1,0 +1,13 @@
+[package]
+name = "osm_cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "OSM distribution CLI (LP-0018)"
+
+[[bin]]
+name = "osm"
+path = "src/main.rs"
+
+[dependencies]
+osm_registry_core = { workspace = true }

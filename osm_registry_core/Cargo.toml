@@ -1,0 +1,10 @@
+[package]
+name = "osm_registry_core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Shared on-chain/off-chain types for the LP-0018 OSM registry"
+
+[dependencies]
+borsh = { workspace = true }
+serde = { workspace = true }
