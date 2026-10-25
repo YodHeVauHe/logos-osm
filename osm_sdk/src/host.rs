@@ -116,23 +116,22 @@ impl OsmSdk {
             .unwrap_or_default())
     }
 
-    /// Host one region: fetch → verify → store → register.
+    /// Host one region: fetch → verify → store → register. Errors keep
+    /// their original type (ChecksumMismatch etc.), unlike the bulk path
+    /// which demotes per-region failures into `HostReport::skipped`.
     pub async fn host_region(
         &self,
         region: &str,
         signer: [u8; 32],
         opts: HostOpts,
     ) -> Result<RegionEntry, SdkError> {
-        let report = self
-            .host_regions(&[region.to_string()], signer, opts)
+        let tmp = tempfile::tempdir()?;
+        let mut entry = self
+            .host_one(region, &tmp.path().join("r.pbf"), &opts)
             .await?;
-        match report.registered.into_iter().next() {
-            Some(e) => Ok(e),
-            None => Err(SdkError::Other(anyhow::anyhow!(
-                "host failed: {}",
-                report.skipped.first().map(|s| s.error.clone()).unwrap_or_default()
-            ))),
-        }
+        entry.registered_by = signer;
+        self.registry.register(&[entry.clone()], signer).await?;
+        Ok(entry)
     }
 
     /// Bulk host: fetch+verify+store every region, then ONE batch-register
@@ -244,7 +243,7 @@ impl OsmSdk {
         checksum_override: Option<String>,
     ) -> Result<RegionEntry, SdkError> {
         let def = regions::get(region).ok_or_else(|| SdkError::UnknownRegion(region.into()))?;
-        let expected = match checksum_override {
+        let expected = match checksum_override.clone() {
             Some(c) => c,
             None => self.geofabrik.fetch_checksum(&def.pbf_url).await?,
         };
@@ -362,9 +361,9 @@ mod tests {
     use crate::storage::InMemoryStorage;
     use std::sync::Arc;
 
-    fn sdk_for_tests() -> (OsmSdk, Arc<InMemoryStorage>, MockRegistryClient) {
+    fn sdk_for_tests() -> (OsmSdk, Arc<InMemoryStorage>, Arc<MockRegistryClient>) {
         let storage = Arc::new(InMemoryStorage::new());
-        let mock = MockRegistryClient::new();
+        let mock = Arc::new(MockRegistryClient::new());
         let sdk = OsmSdk::new(Box::new(storage.clone()), Box::new(mock.clone()));
         (sdk, storage, mock)
     }
@@ -387,7 +386,7 @@ mod tests {
 
     #[tokio::test]
     async fn host_region_full_pipeline() {
-        let (sdk, storage, mock) = sdk_for_tests();
+        let (mut sdk, storage, mock) = sdk_for_tests();
         mock.init_registry().await.unwrap();
         let server = wiremock::MockServer::start().await;
         sdk.geofabrik
@@ -406,7 +405,7 @@ mod tests {
             .respond_with(
                 wiremock::ResponseTemplate::new(307).insert_header(
                     "Location",
-                    format!("{server}/europe/germany-261024.osm.pbf"),
+                    format!("{}/europe/germany-261024.osm.pbf", server.uri()),
                 ),
             )
             .mount(&server)
@@ -438,7 +437,7 @@ mod tests {
 
     #[tokio::test]
     async fn host_region_checksum_mismatch_aborts() {
-        let (sdk, storage, mock) = sdk_for_tests();
+        let (mut sdk, storage, mock) = sdk_for_tests();
         mock.init_registry().await.unwrap();
         let server = wiremock::MockServer::start().await;
         sdk.geofabrik
@@ -465,12 +464,12 @@ mod tests {
             .unwrap_err();
         assert!(matches!(err, SdkError::ChecksumMismatch { .. }), "{err}");
         assert_eq!(storage.object_count().await, 0);
-        assert!(mock.fetch_all().await.unwrap().is_none());
+        assert!(mock.fetch_all().await.unwrap().map(|m| m.is_empty()).unwrap_or(true));
     }
 
     #[tokio::test]
     async fn host_regions_batches_into_one_tx() {
-        let (sdk, _s, mock) = sdk_for_tests();
+        let (mut sdk, _s, mock) = sdk_for_tests();
         mock.init_registry().await.unwrap();
         let server = wiremock::MockServer::start().await;
         sdk.geofabrik
@@ -509,7 +508,7 @@ mod tests {
                 .and(wiremock::matchers::path(latest))
                 .respond_with(
                     wiremock::ResponseTemplate::new(307)
-                        .insert_header("Location", format!("{server}{dated}")),
+                        .insert_header("Location", format!("{}{}", server.uri(), dated)),
                 )
                 .mount(&server)
                 .await;
@@ -530,7 +529,7 @@ mod tests {
 
     #[tokio::test]
     async fn bulk_host_skips_failed_region() {
-        let (sdk, _s, mock) = sdk_for_tests();
+        let (mut sdk, _s, mock) = sdk_for_tests();
         mock.init_registry().await.unwrap();
         let server = wiremock::MockServer::start().await;
         sdk.geofabrik
@@ -554,7 +553,10 @@ mod tests {
             .await;
         wiremock::Mock::given(wiremock::matchers::method("GET"))
             .and(wiremock::matchers::path("/europe/france-latest.osm.pbf"))
-            .respond_with(wiremock::ResponseTemplate::new(404))
+            .respond_with(
+                wiremock::ResponseTemplate::new(404)
+                    .append_header("Last-Modified", "Sun, 25 Oct 2026 00:51:09 GMT"),
+            )
             .mount(&server)
             .await;
 
@@ -617,7 +619,7 @@ mod tests {
 
     #[tokio::test]
     async fn check_updates_detects_newer_central() {
-        let (sdk, _s, mock) = sdk_for_tests();
+        let (mut sdk, _s, mock) = sdk_for_tests();
         mock.init_registry().await.unwrap();
         let mut e = test_entry("germany");
         e.version = "261024".into();
@@ -631,7 +633,7 @@ mod tests {
             .respond_with(
                 wiremock::ResponseTemplate::new(307).insert_header(
                     "Location",
-                    format!("{server}/europe/germany-261025.osm.pbf"),
+                    format!("{}/europe/germany-261025.osm.pbf", server.uri()),
                 ),
             )
             .mount(&server)
@@ -667,7 +669,7 @@ mod tests {
 
     #[tokio::test]
     async fn download_unhosted_falls_back_to_geofabrik() {
-        let (sdk, _s, mock) = sdk_for_tests();
+        let (mut sdk, _s, mock) = sdk_for_tests();
         mock.init_registry().await.unwrap();
         let dir = tempfile::tempdir().unwrap();
 

@@ -185,7 +185,7 @@ pub extern "C" fn osm_sdk_version() -> *const c_char {
 
 /// Free a string returned by any osm_* function.
 #[no_mangle]
-pub extern "C" unsafe fn osm_free(ptr: *mut c_char) {
+pub unsafe extern "C" fn osm_free(ptr: *mut c_char) {
     if !ptr.is_null() {
         drop(CString::from_raw(ptr));
     }
@@ -209,7 +209,7 @@ ffi_fn!(
         let cfg: FfiConfig = serde_json::from_str(cfg_json).map_err(|e| e.to_string())?;
         let _ = cfg; // discovery needs no chain/storage access
         let defs = osm_sdk::regions::predefined();
-        alloc_json(defs)
+        alloc_json(&defs.to_vec())
     },
     cfg_json
 );

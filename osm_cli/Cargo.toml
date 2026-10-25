@@ -11,7 +11,7 @@ path = "src/main.rs"
 
 [dependencies]
 osm_registry_core = { workspace = true }
-osm_sdk = { path = "../osm_sdk" }
+osm_sdk = { path = "../osm_sdk", features = ["test-util"] }
 clap = { workspace = true }
 tokio = { workspace = true }
 serde = { workspace = true }

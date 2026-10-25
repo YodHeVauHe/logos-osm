@@ -1,0 +1,24 @@
+{
+  "name": "osm-app",
+  "version": "1.0.0",
+  "description": "OSM distribution Basecamp app: browse predefined regions, host/import PBF snapshots into Logos Storage, download verified files, track updates.",
+  "author": "LP-0018",
+  "type": "ui_qml",
+  "category": "ui",
+  "main": "osm_app_plugin",
+  "view": "qml/Main.qml",
+  "dependencies": ["osm"],
+  "nix": {
+    "packages": {
+      "build": [],
+      "runtime": []
+    },
+    "external_libraries": [],
+    "cmake": {
+      "find_packages": [],
+      "extra_sources": [],
+      "extra_include_dirs": [],
+      "extra_link_libraries": []
+    }
+  }
+}

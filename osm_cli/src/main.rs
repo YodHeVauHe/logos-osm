@@ -227,7 +227,7 @@ async fn run(cli: Cli) -> i32 {
         })
     };
 
-    let sdk = OsmSdk::new(storage, registry);
+    let mut sdk = OsmSdk::new(storage, registry);
     if let Some(base) = &cli.geofabrik_base {
         sdk.geofabrik
             .set_url_rewrite("https://download.geofabrik.de", base.clone());
@@ -246,10 +246,16 @@ async fn run(cli: Cli) -> i32 {
         },
         Cmd::Discover { json, refresh } => {
             let defs: Vec<osm_sdk::regions::RegionDef> = if refresh {
-                match fetch_index().and_then(|idx| sdk.discover_refreshed(&idx)) {
-                    Ok(v) => v,
-                    Err(e) => {
-                        eprintln!("live index refresh failed ({e}); using bundled set");
+                match fetch_index() {
+                    Some(idx) => match sdk.discover_refreshed(&idx) {
+                        Ok(v) => v,
+                        Err(e) => {
+                            eprintln!("live index refresh failed ({e}); using bundled set");
+                            sdk.discover().to_vec()
+                        }
+                    },
+                    None => {
+                        eprintln!("live index fetch failed; using bundled set");
                         sdk.discover().to_vec()
                     }
                 }
@@ -273,9 +279,9 @@ async fn run(cli: Cli) -> i32 {
             }
             0
         }
-        Cmd::Host { regions, exclude, json } => {
+        Cmd::Host { ref regions, ref exclude, json } => {
             let selected: Vec<String> =
-                regions.into_iter().filter(|r| !exclude.contains(r)).collect();
+                regions.iter().filter(|r| !exclude.contains(r)).cloned().collect();
             if selected.is_empty() {
                 eprintln!("no regions selected");
                 return 1;
@@ -312,13 +318,13 @@ async fn run(cli: Cli) -> i32 {
                 Err(e) => fail(&e),
             }
         }
-        Cmd::Import { region, file, md5 } => {
+        Cmd::Import { ref region, ref file, ref md5 } => {
             let signer = match signer_from(&cli, &cfg) {
                 Ok(s) => s,
                 Err(e) => return fail(&e),
             };
             match sdk
-                .import_local(&region, &file, signer, HostOpts::default(), md5)
+                .import_local(&region, &file, signer, HostOpts::default(), md5.clone())
                 .await
             {
                 Ok(e) => {

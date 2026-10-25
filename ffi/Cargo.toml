@@ -10,7 +10,7 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 osm_registry_core = { workspace = true }
-osm_sdk = { path = "../osm_sdk" }
+osm_sdk = { path = "../osm_sdk", features = ["test-util"] }
 tokio = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

@@ -8,6 +8,7 @@
 
 use crate::error::SdkError;
 use async_trait::async_trait;
+use borsh::BorshDeserialize;
 use osm_registry_core::{Registry, RegionEntry, MAX_BATCH};
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -25,6 +26,26 @@ pub trait RegistryClient: Send + Sync {
         -> Result<(), SdkError>;
     /// Full registry state; `None` when the PDA is not initialized yet.
     async fn fetch_all(&self) -> Result<Option<BTreeMap<String, RegionEntry>>, SdkError>;
+}
+
+#[async_trait]
+impl<T: RegistryClient + ?Sized> RegistryClient for std::sync::Arc<T> {
+    async fn pda(&self) -> Result<String, SdkError> {
+        (**self).pda().await
+    }
+    async fn init_registry(&self) -> Result<(), SdkError> {
+        (**self).init_registry().await
+    }
+    async fn register(
+        &self,
+        entries: &[RegionEntry],
+        registered_by: [u8; 32],
+    ) -> Result<(), SdkError> {
+        (**self).register(entries, registered_by).await
+    }
+    async fn fetch_all(&self) -> Result<Option<BTreeMap<String, RegionEntry>>, SdkError> {
+        (**self).fetch_all().await
+    }
 }
 
 // ── Batch payload (hex-encoded borsh Vec<RegionEntry>) ────────────────────

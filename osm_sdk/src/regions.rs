@@ -91,6 +91,9 @@ pub fn parse_index(json: &str) -> Result<Vec<IndexEntry>, SdkError> {
             .and_then(|u| u.get("pbf"))
             .and_then(|s| s.as_str())
             .map(|s| s.to_string());
+        if pbf_url.is_none() {
+            continue; // cannot be hosted without a pbf url
+        }
         out.push(IndexEntry { id, parent, name, pbf_url });
     }
     Ok(out)
@@ -194,7 +197,7 @@ mod tests {
 
     #[test]
     fn parse_index_reads_sample() {
-        let idx = parse_index(crate::tests_fixture::INDEX_SAMPLE).unwrap();
+        let idx = parse_index(super::tests_fixture::INDEX_SAMPLE).unwrap();
         let cal = idx.iter().find(|e| e.id == "us/california").unwrap();
         assert_eq!(
             cal.pbf_url.as_deref(),

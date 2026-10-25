@@ -38,7 +38,7 @@ pub fn parse_md5_file(text: &str) -> Result<String, SdkError> {
 /// Returns `None` for undated (`-latest`) names.
 pub fn version_from_dated_filename(location: &str) -> Option<String> {
     const DIGITS: &[u8] = b"0123456789";
-    let marker = "-.osm.pbf";
+    let marker = ".osm.pbf";
     let idx = location.rfind(marker)?;
     if idx < 6 {
         return None;
@@ -130,12 +130,13 @@ impl Geofabrik {
             if let Some(v) = version_from_dated_filename(resp.url().path()) {
                 return Ok(v);
             }
-        }
-        let head = self.http.head(self.resolve(pbf_url)).send().await?;
-        if let Some(lm) = head.headers().get(reqwest::header::LAST_MODIFIED) {
-            if let Ok(s) = lm.to_str() {
-                if let Some(v) = version_from_http_date(s) {
-                    return Ok(v);
+            // 200 without a dated name: the response itself carries
+            // Last-Modified — no separate HEAD needed.
+            if let Some(lm) = resp.headers().get(reqwest::header::LAST_MODIFIED) {
+                if let Ok(s) = lm.to_str() {
+                    if let Some(v) = version_from_http_date(s) {
+                        return Ok(v);
+                    }
                 }
             }
         }
@@ -271,13 +272,13 @@ mod tests {
     #[test]
     fn version_from_dated_filename() {
         assert_eq!(
-            version_from_dated_filename(
+            super::version_from_dated_filename(
                 "https://download.geofabrik.de/north-america/us/california-261024.osm.pbf"
             ),
             Some("261024".into())
         );
         assert_eq!(
-            version_from_dated_filename(
+            super::version_from_dated_filename(
                 "https://download.geofabrik.de/north-america/us/california-latest.osm.pbf"
             ),
             None

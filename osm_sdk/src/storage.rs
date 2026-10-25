@@ -30,6 +30,19 @@ pub trait StorageBackend: Send + Sync {
     fn name(&self) -> &'static str;
 }
 
+#[async_trait]
+impl<T: StorageBackend + ?Sized> StorageBackend for std::sync::Arc<T> {
+    async fn put(&self, file: &Path, name: &str) -> Result<PutReceipt, SdkError> {
+        (**self).put(file, name).await
+    }
+    async fn get(&self, cid: &str, dest: &Path) -> Result<(), SdkError> {
+        (**self).get(cid, dest).await
+    }
+    fn name(&self) -> &'static str {
+        (**self).name()
+    }
+}
+
 // ── In-memory test double ─────────────────────────────────────────────────
 
 #[derive(Default, Clone)]
@@ -50,6 +63,10 @@ impl InMemoryStorage {
 
 #[async_trait]
 impl StorageBackend for InMemoryStorage {
+    fn name(&self) -> &'static str {
+        "in-memory"
+    }
+
     async fn put(&self, file: &Path, name: &str) -> Result<PutReceipt, SdkError> {
         let mut bytes = Vec::new();
         tokio::fs::File::open(file)
@@ -180,6 +197,10 @@ impl LogoscoreStorage {
 
 #[async_trait]
 impl StorageBackend for LogoscoreStorage {
+    fn name(&self) -> &'static str {
+        "logoscore"
+    }
+
     async fn put(&self, file: &Path, name: &str) -> Result<PutReceipt, SdkError> {
         let args = self.command_for_put(file, name);
         let delays = backoff_delays(self.max_retries);
@@ -251,7 +272,7 @@ mod tests {
         let st = InMemoryStorage::new();
         let r = st.put(&src, "test-region").await.unwrap();
         assert!(r.cid.starts_with("bafk-inmem-test-region-"));
-        assert_eq!(r.size, 12);
+        assert_eq!(r.size, 13);
         let dest = dir.path().join("out.bin");
         st.get(&r.cid, &dest).await.unwrap();
         assert_eq!(tokio::fs::read(&dest).await.unwrap(), b"hello storage");

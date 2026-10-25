@@ -1,0 +1,25 @@
+{
+  "name": "osm",
+  "version": "1.0.0",
+  "description": "OSM registry module: discover predefined regions, resolve CIDs, host/import PBF snapshots, check updates. Other Basecamp apps consume the discovery/resolve/download subset.",
+  "author": "LP-0018",
+  "type": "core",
+  "category": "maps",
+  "main": "osm_plugin",
+  "dependencies": ["storage_module"],
+  "include": [],
+  "capabilities": [],
+  "nix": {
+    "packages": {
+      "build": [],
+      "runtime": []
+    },
+    "external_libraries": [],
+    "cmake": {
+      "find_packages": [],
+      "extra_sources": [],
+      "extra_include_dirs": [],
+      "extra_link_libraries": []
+    }
+  }
+}
