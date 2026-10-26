@@ -27,4 +27,4 @@ class OsmApp
     SLOT void downloadRegion(QString region, QString destDir)
     SLOT void refresh()
     SLOT void checkUpdates()
-}
+};
