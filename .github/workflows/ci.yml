@@ -48,12 +48,13 @@ jobs:
           echo "$HOME/.risc0/bin" >> "$GITHUB_PATH"
           "$HOME/.risc0/bin/rzup" install rust
           "$HOME/.risc0/bin/rzup" install cargo-risczero
+          "$HOME/.risc0/bin/rzup" install r0vm
       - name: Build guest (deterministic, docker)
-        run: make build
-      - name: Program ID
         id: pid
         run: |
-          PID=$(spel program-id methods/guest/target/riscv32im-risc0-zkvm-elf/docker/osm_registry.bin --format hex)
+          make build 2>&1 | tee build.log
+          PID=$(grep -oE 'ProgramId: [0-9a-f]{64}' build.log | head -1 | cut -d' ' -f2)
+          test -n "$PID" || { echo "::error::Program ID was not derived"; exit 1; }
           echo "program_id=$PID" >> "$GITHUB_OUTPUT"
           echo "Program ID: $PID"
       - name: IDL is up to date
@@ -97,10 +98,9 @@ jobs:
 
   nix:
     name: nix (Basecamp module + app)
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
+    # macOS produces dylibs, not .so — the vendored FFI build is Linux-only
+    # for now; macOS coverage is validated from source by the rust matrix.
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: DeterminateSystems/nix-installer-action@v13

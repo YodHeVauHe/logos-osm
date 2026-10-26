@@ -1,6 +1,7 @@
 GUEST_SRC   := methods/guest/src/bin/osm_registry.rs
-GUEST_ELF   := methods/guest/target/riscv32im-risc0-zkvm-elf/docker/osm_registry
-GUEST_BIN   := methods/guest/target/riscv32im-risc0-zkvm-elf/docker/osm_registry.bin
+# cargo-risczero >=3.0.6 exports the ELF under release/, older ones under docker/.
+GUEST_ELF_GLOB := methods/guest/target/riscv32im-risc0-zkvm-elf/*/osm_registry
+GUEST_BIN   := methods/guest/target/riscv32im-risc0-zkvm-elf/osm_registry.bin
 IDL         := idl/osm-registry.idl.json
 FFI_SO      := osm-module/lib/libosm_ffi.so
 
@@ -14,7 +15,7 @@ all: build ffi idl
 build:
 	cargo risczero build --manifest-path methods/guest/Cargo.toml
 	cargo build --release --manifest-path tools/Cargo.toml --bin mk-program-binary
-	tools/target/release/mk-program-binary $(GUEST_ELF) $(GUEST_BIN)
+	GUEST_ELF=$$(ls $(GUEST_ELF_GLOB) | head -1); 	tools/target/release/mk-program-binary $$GUEST_ELF $(GUEST_BIN)
 	@echo "Built: $(GUEST_BIN)"
 	@command -v spel >/dev/null 2>&1 \
 		&& spel program-id $(GUEST_BIN) --format hex \
