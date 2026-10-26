@@ -1,12 +1,16 @@
 # Publishing to a Logos module catalog
 
 The two Basecamp artifacts (`osm` core module, `osm-app` QML app) are
-published as a fork of
-[`logos-modules-release-base`](https://github.com/logos-co/logos-modules-release-base),
-releasing via
+published by forking
+[`logos-modules-release-base`](https://github.com/logos-co/logos-modules-release-base)
+and releasing via
 [`logos-modules-release-action`](https://github.com/logos-co/logos-modules-release-action).
 Evaluators install them through the Basecamp package-manager UI or `lgpd`
 using the catalog's `logos-repo.json` URL.
+
+> **Status:** this is the publication procedure. No catalog fork or
+> `logos-repo.json` URL has been published yet; record the URL here and in the
+> README when it is.
 
 ## Steps
 
@@ -14,8 +18,8 @@ using the catalog's `logos-repo.json` URL.
 2. **Build both modules** (CI does this on every tag):
    ```sh
    cargo build --release -p osm_ffi
-   mkdir -p osm-module/vendored
-   cp target/release/libosm_ffi.so osm-module/vendored/
+   mkdir -p osm-module/lib
+   cp target/release/libosm_ffi.so osm-module/lib/
    nix build .#osm-install .#osm-app-install
    ```
 3. **Copy the built module bundles** into the catalog fork's layout (the
@@ -44,7 +48,7 @@ using the catalog's `logos-repo.json` URL.
    lgpd install osm-app
    ```
 
-## notes
+## Notes
 
 - Both modules are built with `logos-module-builder` (`mkLogosModule` /
   `mkLogosQmlModule`) — see `flake.nix`.
