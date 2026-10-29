@@ -1,121 +1,60 @@
 # FURPS self-assessment — LP-0018
 
-This assessment follows the λPrize
-[solution template](https://github.com/logos-co/lambda-prize/blob/master/solutions/LP-0000.md).
-It maps each FURPS dimension to the artefacts that satisfy it and separates
-what is implemented from what is still an operator step. The criterion-by-
-criterion checklist is in the [README](../README.md#success-criteria-checklist).
+This assessment follows the λPrize [solution template](https://github.com/logos-co/lambda-prize/blob/master/solutions/LP-0000.md). It maps requirements to repository evidence and distinguishes locally verified behavior from CI and owner actions. See the [README checklist](../README.md#success-criteria-checklist) for a compact status table.
 
 ## Functionality
 
-| Capability | Implementation | Evidence |
+| Capability | Implementation | Evidence and status |
 |---|---|---|
-| Region discovery over the frozen 72-region set | `osm_sdk::regions` embeds `regions.json`; optional live URL refresh from the Geofabrik index | `osm_sdk/src/regions.rs`, `osm discover [--refresh]` |
-| Host workflow (fetch → verify → store → register) | `OsmSdk::host_region` | `osm_sdk/src/host.rs`, unit tests with a wiremock Geofabrik |
-| Bulk host with per-region opt-out and one batch transaction | `OsmSdk::host_regions`, `register_batch` | `host_regions_batches_into_one_tx`, CLI `--exclude` |
-| Local import with MD5 verification at import time | `OsmSdk::import_local` (optional offline checksum override) | `import_local_uses_override_checksum`, CLI `--md5` |
-| Update check tracked per region path | `OsmSdk::check_updates` | `check_updates_detects_newer_central` |
-| Download from Logos Storage with Geofabrik fallback | `OsmSdk::download_region` | `download_prefers_storage_then_falls_back` |
-| On-chain registry with required fields, unique region key, explicit parent/level | `osm_registry_core::RegionEntry` + guest validation | `osm_registry_core/src/lib.rs`, `methods/guest` |
-| Query by region, parent and CID | Off-chain borsh decode + filters | `osm_sdk/src/registry.rs` |
-| Batch registration | `register_batch` with hex(borsh(Vec<RegionEntry>)) | Guest instruction, `batch_payload_roundtrip` |
-| Consumer SDK/module separate from the distribution app | `osm_sdk` full API; `osm-module` consumer subset over FFI | `docs/sdk.md`, `osm-module/metadata.json` |
-| End-to-end pipeline | In-memory CI suite; chain job configured for a local sequencer and Logos Storage | `tests/e2e/src/lib.rs`, `.github/workflows/ci.yml` |
+| Discover the frozen 72-region set | `osm_sdk::regions` embeds `regions.json`; optional live index refresh | `osm_sdk/src/regions.rs`; workspace tests pass locally |
+| Host one or multiple regions | Fetch, verify Geofabrik MD5, store, then register; bulk registration uses one batch transaction | `osm_sdk/src/host.rs`; unit tests pass locally |
+| Import local extracts | Verify MD5 at import time, then store and register | `osm_sdk/src/host.rs`; unit tests pass locally |
+| Registry fields and queries | SPEL guest and shared types validate required fields; off-chain query by region, parent, and CID | `osm_registry_core`, `methods/guest`, `osm_sdk/src/registry.rs` |
+| Resolve and download | SDK resolves registry entries and selects hosted Storage or Geofabrik fallback paths | `osm_sdk/src/host.rs`; Storage production roundtrip is not verified |
+| Consumer SDK/module | Rust API and Basecamp module source expose consumer operations | `docs/sdk.md`, `osm-module`; Nix build and catalog publication remain unverified |
+| Basecamp app and consumer example | App source and independent example are present | `osm-app`, `examples/basecamp-consumer`; package build/runtime remains unverified |
 
-**Limitations.** The deliverable distributes snapshots only: no live OSM sync,
-map rendering, geocoding, routing, navigation or custom regions. Those are out
-of scope in LP-0018. The public testnet 0.4 deployment is not yet recorded.
+**Storage limitation.** `LogoscoreStorage` calls the legacy `uploadFile`, `downloadFile`, and `nameObject` API. The current Storage module exposes `uploadUrl` and `downloadToUrl`. The complete Storage host-query-download roundtrip therefore has not been verified. The in-memory e2e path does not establish Storage interoperability.
+
+**Scope.** The deliverable distributes snapshots. Live OSM sync, map rendering, geocoding, routing, navigation, and custom regions are outside LP-0018 scope. Public testnet deployment is pending.
 
 ## Usability
 
-- `osm discover` works with no chain, storage or network configuration, which
-  gives a first-run path that needs only Rust.
-- The CLI prints hosted status, version, CID and verification result, and every
-  query/report command supports `--json` for scripting.
-- `--storage-memory` runs the full pipeline without `logoscore` or a sequencer
-  (mock backends), so the SDK can be evaluated before infrastructure is set up.
-- The Basecamp app presents the region set with level grouping, hosted/version
-  columns, a verification line, bulk selection with opt-out, local import,
-  download and an update banner.
-- [`docs/sdk.md`](sdk.md) contains the worked "resolve a region to its CID and
-  metadata" example that most consumer modules will follow.
-- [`docs/catalog.md`](catalog.md) documents installation through the Basecamp
-  package manager once a catalog is published.
-
-The onboarding gap is operational: a real host/import needs a configured LEZ
-node, signer, `logoscore` and `storage_module`. The README lists those
-prerequisites and the exact commands.
+- `osm discover` lists the frozen region set without chain or Storage configuration.
+- The CLI exposes discovery, host, import, lookup, update-check, download, and registry initialization commands. `cargo run -p osm_cli --bin osm -- --help` was run locally.
+- The Basecamp app source presents region operations, but its package build and interactive runtime are not verified in this documentation run.
+- [`docs/sdk.md`](sdk.md) contains a Rust consumer example and a separate Basecamp consumer module example.
+- [`docs/catalog.md`](catalog.md) describes catalog release steps; no catalog has been published.
 
 ## Reliability
 
-- **Deterministic state.** `Registry` uses `BTreeMap`, so borsh bytes do not
-  depend on insertion order. The guest rejects writes that would exceed the
-  LEZ 100 KiB account ceiling.
-- **Validation in two places.** The SDK runs the same `validate_entry` rules as
-  the guest before submitting, so malformed entries fail locally instead of
-  consuming a transaction.
-- **Retry policy.** Geofabrik downloads and Logos Storage uploads share
-  `backoff_delays` (1s, 2s, 4s … capped at 30s) and return
-  `SdkError::RetriesExhausted` with the underlying error after the last try.
-- **Fail-closed checksums.** A mismatch returns
-  `ChecksumMismatch { region, expected, actual }`, removes the partial file and
-  never registers anything. The CLI maps this to exit code 2.
-- **Partial bulk failure.** A region that fails download/verification is
-  reported in `HostReport::skipped`; the remaining verified regions are still
-  registered in one batch.
-- **No hidden dependency.** The only external endpoints are the configured
-  Logos node/sequencer, Logos Storage and Geofabrik (or a mirror via
-  `--geofabrik-base`). Hosted downloads do not need Geofabrik. There is no
-  analytics or optional third-party service.
+- `Registry` uses `BTreeMap` serialization, and collection query results are ordered by timestamp with region path as a tie-breaker.
+- SDK and guest share entry validation. Local unit tests cover validation and registration payload behavior.
+- Geofabrik downloads and Storage uploads implement exponential retry delays and report exhausted retries.
+- Checksum mismatches fail before registration and remove partial files.
+- The in-memory tests cover the host/query/download workflow using test doubles. They do not prove compatibility with the current Logos Storage module API.
+- The branch's GitHub Actions workflow has not run. Workflow configuration is source evidence, not a successful CI result.
 
 ## Performance
 
-- The full 72-entry registry occupies roughly 19 KB, well below the 100 KiB
-  account limit; a bulk registration is a single transaction.
-- The guest logs cycle counts around `init_registry`, `register_region` and
-  `register_batch`; the chain workflow requires one-entry and two-entry records
-  and uploads them for review.
-- `docs/cycles.md` documents the measurement method. No numeric measurements
-  have been captured and committed yet, so no cycle result is claimed.
-
-No throughput or latency claims are made beyond the design properties above.
+The registry is designed to fit below the LEZ 100 KiB account ceiling; the core tests include a serialized-size bound. [`docs/cycles.md`](cycles.md) records observed localnet guest cycle samples for one-entry `register_region` and two-entry `register_batch`, including the measured guest Program ID and toolchain details. These samples are localnet measurements, not CI results or universal operation costs. GitHub Actions has not run on this branch.
 
 ## Supportability
 
-- **Structure.** The workspace separates shared types (`osm_registry_core`),
-  the SDK (`osm_sdk`), the CLI (`osm_cli`), the C ABI (`ffi`), the guest
-  (`methods/guest`), the Basecamp module (`osm-module`) and the app
-  (`osm-app`). The guest stays thin because validation lives in the shared
-  crate.
-- **Tests.** Unit and integration tests cover validation, Geofabrik parsing,
-  versions, storage, registry payloads, workflows and the in-memory e2e
-  pipeline. The real-backend test requires the sequencer, wallet and Logos
-  Storage configuration.
-- **CI.** `rust` (Ubuntu + Windows) runs fmt, clippy, tests and in-memory e2e;
-  `chain` is configured to build and deploy the guest, run the sequencer and
-  Storage e2e, and require both cycle records; the workflow fails when required
-  Logos Storage runner paths are missing. `nix` builds the module and app;
-  `live-geofabrik` is dispatch-only. No successful chain workflow result is
-  recorded in this repository yet.
-- **Toolchain pinning.** `spel-framework` and `lee_core` are pinned, and the
-  known-good framework is vendored, so the Program ID is reproducible.
-- **Documentation.** README, SDK guide, catalog procedure, cycle methodology
-  and this assessment live in-repo; the prize specification and implementation
-  plan are kept for reference.
-- **Licensing.** `MIT OR Apache-2.0` with both license texts committed.
-- **Platforms.** Host Rust is tested on Ubuntu and Windows. Modules are built on
-  Linux; the flake declares Linux/macOS outputs, but macOS module builds and
-  Android are not yet validated in CI.
+- The workspace separates shared types, SDK, CLI, FFI, guest program, Basecamp module, app, and consumer example.
+- `cargo build --workspace` and `cargo test --workspace` pass locally. `make idl` regenerates the tracked SPEL IDL. These results do not establish CI or Nix package status.
+- `nix flake show` evaluates package outputs locally. Nix package builds were not run in this docs pass; the flake reports a QML backend deprecation warning.
+- The CI workflow defines Rust, localnet, cycle-artifact, and Nix jobs, but no successful GitHub Actions run for this branch is recorded.
+- The flake declares Linux and macOS outputs. This does not establish macOS module builds or adoption.
+- The repository includes MIT and Apache-2.0 license texts and declares `MIT OR Apache-2.0`.
 
-## Known limitations and pending operator steps
+## Known limitations and pending owner actions
 
-| Item | Current state | What remains |
+| Item | Evidence status | Remaining work |
 |---|---|---|
-| Testnet 0.4 | No public deployment evidence is recorded; the chain workflow is configured for localnet | Deploy to the public zone and record the Program ID and registry PDA |
-| IDL | `make idl` generates the tracked artifact; CI fails if it is stale and uploads it for inspection | Keep regeneration deterministic as the guest interface changes |
-| Cycle counts | Guest instrumentation and fail-closed CI artifact capture are wired; no successful capture is recorded here | Commit values from a successful `cycles` artifact in `docs/cycles.md` |
-| Module catalog | Fork/release procedure documented | Publish the catalog and record its `logos-repo.json` URL |
-| Adoption | No evidence claimed | 15 countries / 25 verified entries, 5 independent modules (3 Basecamp UI apps), macOS coverage |
-
-These gaps are deployment and adoption work, not missing implementation of the
-success criteria.
+| Logos testnet 0.4 | No deployment evidence or testnet Program ID recorded | Deploy, test, and record Program ID and registry PDA |
+| Logos Storage integration | Adapter targets legacy method names; current module API differs | Align adapter and verify a real host-query-download roundtrip |
+| GitHub Actions | No run for this branch | Run workflow and retain successful job evidence |
+| Module catalog | Procedure is documented; no catalog fork or URL recorded | Publish `osm` and `osm-app`, then record `logos-repo.json` URL |
+| Adoption | No external consumer or hosted coverage evidence recorded | Provide 15 covered countries, 25 checksum-verifiable entries, five independent consumers (including three Basecamp UI apps), and Linux/macOS use evidence |
+| λPrize submission | No solution PR evidence recorded | Open the solution PR with this assessment and adoption evidence |
