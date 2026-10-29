@@ -122,7 +122,7 @@ void OsmAppPlugin::hostRegions(const QString& regionsCsv) {
     setPhase(QStringLiteral("hosting"));
     setStatus(QStringLiteral("hosting %1…").arg(regionsCsv));
     QString error;
-    const QJsonValue r = callModule("hostRegions", {regionsCsv}, &error);
+    callModule("hostRegions", {regionsCsv}, &error);
     setWorking(false);
     setPhase(error.isEmpty() ? QStringLiteral("idle") : QStringLiteral("error"));
     setStatus(error.isEmpty() ? QStringLiteral("hosting complete") : error);
@@ -138,7 +138,10 @@ void OsmAppPlugin::importRegion(const QString& region, const QString& filePath,
     const QJsonValue r = callModule("importRegion", {region, filePath, md5Override}, &error);
     setWorking(false);
     const bool verified = r.isObject() && r.toObject().value(QStringLiteral("verified")).toBool();
-    setLastVerification(verified ? QStringLiteral("verified") : QStringLiteral("MISMATCH"));
+    // A failed module call is not a checksum mismatch; clear the result instead.
+    setLastVerification(!error.isEmpty() ? QString()
+                        : verified       ? QStringLiteral("verified")
+                                         : QStringLiteral("MISMATCH"));
     setPhase(error.isEmpty() ? QStringLiteral("idle") : QStringLiteral("error"));
     setStatus(error.isEmpty() ? QStringLiteral("imported %1").arg(region) : error);
     refresh();
@@ -152,7 +155,10 @@ void OsmAppPlugin::downloadRegion(const QString& region, const QString& destDir)
     const QJsonValue r = callModule("downloadRegion", {region, destDir}, &error);
     setWorking(false);
     const bool verified = r.isObject() && r.toObject().value(QStringLiteral("verified")).toBool();
-    setLastVerification(verified ? QStringLiteral("verified") : QStringLiteral("MISMATCH"));
+    // A failed module call is not a checksum mismatch; clear the result instead.
+    setLastVerification(!error.isEmpty() ? QString()
+                        : verified       ? QStringLiteral("verified")
+                                         : QStringLiteral("MISMATCH"));
     setPhase(error.isEmpty() ? QStringLiteral("idle") : QStringLiteral("error"));
     setStatus(error.isEmpty() ? QStringLiteral("downloaded %1 (verified: %2)")
                                     .arg(region, verified ? QStringLiteral("yes") : QStringLiteral("no"))
