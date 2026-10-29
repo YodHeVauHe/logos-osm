@@ -134,6 +134,72 @@ fn required_dir(name: &str) -> PathBuf {
     path
 }
 
+fn localnet_registry() -> SpelCliRegistryClient {
+    SpelCliRegistryClient {
+        cli_bin: required_file("OSM_CLI_BIN"),
+        idl_path: required_file("OSM_IDL_PATH"),
+        program_id: required_env("OSM_PROGRAM_ID"),
+        lgs_bin: PathBuf::from(std::env::var("LGS_BIN").unwrap_or_else(|_| "lgs".into())),
+        wallet_home: required_dir("LEE_WALLET_HOME_DIR"),
+        signer_account_id: required_env("OSM_SIGNER_ACCOUNT_ID"),
+    }
+}
+
+/// Exercise hosting, registration and registry readback through the real
+/// sequencer while keeping file storage in memory. This isolates the chain
+/// registry contract from the separately provisioned Logos Storage daemon.
+#[tokio::test]
+async fn localnet_registry_host_query() {
+    if std::env::var("LGS_LOCALNET").as_deref() != Ok("1") {
+        return;
+    }
+
+    let registry = localnet_registry();
+    let mut sdk = OsmSdk::new(Box::new(InMemoryStorage::new()), Box::new(registry));
+    sdk.registry
+        .init_registry()
+        .await
+        .expect("initialize registry on the deployed sequencer");
+
+    let body = synthetic_snapshot(7, 64 * 1024);
+    let server = spin_geofabrik(&body).await;
+    sdk.geofabrik
+        .set_url_rewrite("https://download.geofabrik.de", server.uri());
+
+    let entry = sdk
+        .host_region("germany", [42u8; 32], HostOpts::default())
+        .await
+        .expect("host and register against the deployed sequencer");
+    let resolved = sdk
+        .resolve("germany")
+        .await
+        .expect("query the deployed registry")
+        .expect("registered entry");
+    assert_eq!(resolved.cid, entry.cid);
+    assert_eq!(resolved.checksum, md5_of(&body));
+
+    // Exercise register_batch against the same real registry as a separate
+    // transaction; cycle evidence is emitted by the guest program.
+    let kenya = osm_sdk::regions::get("kenya").expect("predefined Kenya");
+    let mut batch_entry = entry.clone();
+    batch_entry.region = kenya.region.clone();
+    batch_entry.parent = kenya.parent.clone();
+    batch_entry.level = kenya.level;
+    batch_entry.source_url = kenya.pbf_url.clone();
+    sdk.registry
+        .register(&[entry.clone(), batch_entry], [42u8; 32])
+        .await
+        .expect("register batch on the deployed sequencer");
+    let all = sdk
+        .registry
+        .fetch_all()
+        .await
+        .expect("read real registry state")
+        .expect("initialized registry");
+    assert!(all.contains_key("germany"));
+    assert!(all.contains_key(&kenya.region));
+}
+
 /// Real chain/storage roundtrip. The regular Rust matrix leaves this dormant;
 /// setting LGS_LOCALNET=1 switches this test to production backends only.
 #[tokio::test]
@@ -142,14 +208,7 @@ async fn localnet_host_query_download() {
         return;
     }
 
-    let registry = SpelCliRegistryClient {
-        cli_bin: required_file("OSM_CLI_BIN"),
-        idl_path: required_file("OSM_IDL_PATH"),
-        program_id: required_env("OSM_PROGRAM_ID"),
-        lgs_bin: PathBuf::from(std::env::var("LGS_BIN").unwrap_or_else(|_| "lgs".into())),
-        wallet_home: required_dir("LEE_WALLET_HOME_DIR"),
-        signer_account_id: required_env("OSM_SIGNER_ACCOUNT_ID"),
-    };
+    let registry = localnet_registry();
     let storage = LogoscoreStorage::new(
         required_file("LOGOSCORE_BIN"),
         required_dir("STORAGE_MODULES_DIR"),

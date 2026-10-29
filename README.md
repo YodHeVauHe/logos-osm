@@ -395,12 +395,20 @@ storage, `logoscore` with `storage_module` on its module path. Defaults are
 `./target/debug/osm_registry_cli`, `./idl/osm-registry.idl.json`, `./modules`
 and `storage.json`; override them in `osm.toml` or with the flags below.
 
-The chain-only e2e test selects real backends with `LGS_LOCALNET=1`. It
-requires `OSM_PROGRAM_ID`, `OSM_CLI_BIN`, `OSM_IDL_PATH`,
-`OSM_SIGNER_ACCOUNT_ID`, `LEE_WALLET_HOME_DIR`, `LOGOSCORE_BIN`,
-`STORAGE_MODULES_DIR`, and `OSM_STORAGE_CONFIG`. The workflow supplies the
-chain and wallet paths; configure the three Logos Storage paths as repository
-variables for the chain runner. The regular Rust e2e test remains in-memory.
+The chain CI starts a real local sequencer and runs
+`localnet_registry_host_query` with `LGS_LOCALNET=1`. Hosting uses in-memory
+file storage for this test, while register and query use the deployed program.
+CI creates a signing account with `lgs wallet account new public`, extracts
+its account ID from the command output and tops it up before the test. No
+account ID is hardcoded.
+
+The separate `localnet_host_query_download` test also requires
+`LOGOSCORE_BIN`, `STORAGE_MODULES_DIR`, and `OSM_STORAGE_CONFIG`; it fails when
+any required path is missing. The current Logos Storage module exposes async
+`uploadUrl`/`downloadToUrl` methods, while `LogoscoreStorage` currently expects
+the older `uploadFile`/`downloadFile` interface. The full Storage roundtrip is
+therefore not part of the default chain job until those interfaces are aligned.
+The regular Rust e2e pipeline remains fully in-memory.
 
 ### CLI usage
 

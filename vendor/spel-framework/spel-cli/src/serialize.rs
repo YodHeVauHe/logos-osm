@@ -27,6 +27,7 @@ enum DynamicValue {
     U8(u8),
     U32(u32),
     U64(u64),
+    I64(i64),
     U128(u128),
     Str(String),
     Tuple(Vec<DynamicValue>),
@@ -42,6 +43,7 @@ impl serde::Serialize for DynamicValue {
             DynamicValue::U8(v) => serializer.serialize_u8(*v),
             DynamicValue::U32(v) => serializer.serialize_u32(*v),
             DynamicValue::U64(v) => serializer.serialize_u64(*v),
+            DynamicValue::I64(v) => serializer.serialize_i64(*v),
             DynamicValue::U128(v) => serializer.serialize_u128(*v),
             DynamicValue::Str(s) => serializer.serialize_str(s),
             DynamicValue::Tuple(elems) => {
@@ -117,6 +119,7 @@ fn primitive_to_dynamic(prim: &str, val: &ParsedValue) -> Result<DynamicValue, S
         ("u8", ParsedValue::U8(v)) => Ok(DynamicValue::U8(*v)),
         ("u32", ParsedValue::U32(v)) => Ok(DynamicValue::U32(*v)),
         ("u64", ParsedValue::U64(v)) => Ok(DynamicValue::U64(*v)),
+        ("i64", ParsedValue::I64(v)) => Ok(DynamicValue::I64(*v)),
         ("u128", ParsedValue::U128(v)) => Ok(DynamicValue::U128(*v)),
         ("string" | "String", ParsedValue::Str(s)) => Ok(DynamicValue::Str(s.clone())),
         ("program_id", ParsedValue::U32Array(vals)) => {
@@ -450,6 +453,7 @@ mod tests {
                 v8: u8,
                 v32: u32,
                 v64: u64,
+                s64: i64,
                 v128: u128,
             },
         }
@@ -459,6 +463,7 @@ mod tests {
             IdlType::Primitive("u8".into()),
             IdlType::Primitive("u32".into()),
             IdlType::Primitive("u64".into()),
+            IdlType::Primitive("i64".into()),
             IdlType::Primitive("u128".into()),
         ];
         let vals: Vec<ParsedValue> = vec![
@@ -466,6 +471,7 @@ mod tests {
             ParsedValue::U8(255),
             ParsedValue::U32(0xDEADBEEF),
             ParsedValue::U64(0x0102030405060708),
+            ParsedValue::I64(-42),
             ParsedValue::U128(0x0102030405060708090a0b0c0d0e0f10),
         ];
 
@@ -484,6 +490,7 @@ mod tests {
                 v8: 255,
                 v32: 0xDEADBEEF,
                 v64: 0x0102030405060708,
+                s64: -42,
                 v128: 0x0102030405060708090a0b0c0d0e0f10,
             }
         );

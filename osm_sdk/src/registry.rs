@@ -272,6 +272,8 @@ impl RegistryClient for SpelCliRegistryClient {
                 &e.timestamp.to_string(),
                 "--registered-by",
                 &by,
+                "--authority",
+                &self.signer_account_id,
             ]);
         } else {
             if entries.len() > MAX_BATCH {
@@ -284,6 +286,8 @@ impl RegistryClient for SpelCliRegistryClient {
                 &payload,
                 "--registered-by",
                 &by,
+                "--authority",
+                &self.signer_account_id,
             ]);
         }
         let (stdout, stderr, ok) = Self::run(&mut cmd).await?;
