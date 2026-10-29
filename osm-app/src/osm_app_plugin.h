@@ -2,6 +2,7 @@
 #define OSM_APP_PLUGIN_H
 
 #include <QObject>
+#include <QJsonValue>
 #include <QString>
 
 #include "osm_app_interface.h"
@@ -59,7 +60,7 @@ signals:
     void lastVerificationChanged(const QString&);
 
 private:
-    QJsonObject callModule(const char* method, const QJsonArray& args);
+    QJsonValue callModule(const char* method, const QJsonArray& args, QString* error = nullptr);
 
     QString m_regions = QStringLiteral("[]");
     QString m_registryEntries = QStringLiteral("[]");

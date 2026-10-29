@@ -16,4 +16,5 @@ logos_module(
         src/osm_app_interface.h
         src/osm_app_plugin.h
         src/osm_app_plugin.cpp
+        src/module_json.h
 )
