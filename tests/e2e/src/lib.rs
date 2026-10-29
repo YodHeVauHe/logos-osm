@@ -10,9 +10,10 @@
 
 #![cfg(all(test, feature = "e2e"))]
 
-use osm_sdk::registry::MockRegistryClient;
-use osm_sdk::storage::InMemoryStorage;
+use osm_sdk::registry::{MockRegistryClient, SpelCliRegistryClient};
+use osm_sdk::storage::{InMemoryStorage, LogoscoreStorage};
 use osm_sdk::{HostOpts, OsmSdk};
+use std::path::PathBuf;
 use std::sync::Arc;
 
 /// Deterministic synthetic "pbf" bytes.
@@ -68,11 +69,6 @@ async fn host_query_download_roundtrip() {
     let mock = Arc::new(MockRegistryClient::new());
 
     let mut sdk = OsmSdk::new(Box::new(storage.clone()), Box::new(mock.clone()));
-    // In CI with LGS_LOCALNET=1 this is a SpelCliRegistryClient against the
-    // deployed osm_registry program; the pipeline below is identical.
-    if std::env::var("LGS_LOCALNET").is_ok() {
-        eprintln!("LGS_LOCALNET set — on-chain path is exercised by the chain CI job");
-    }
     sdk.geofabrik
         .set_url_rewrite("https://download.geofabrik.de", server.uri());
 
@@ -105,6 +101,94 @@ async fn host_query_download_roundtrip() {
         report.verified,
         "downloaded bytes must match the registered MD5"
     );
+    assert_eq!(
+        osm_sdk::geofabrik::md5_file(&report.path).await.unwrap(),
+        md5_of(&body)
+    );
+}
+
+fn required_env(name: &str) -> String {
+    std::env::var(name)
+        .ok()
+        .filter(|v| !v.is_empty())
+        .unwrap_or_else(|| panic!("LGS_LOCALNET=1 requires {name}"))
+}
+
+fn required_file(name: &str) -> PathBuf {
+    let path = PathBuf::from(required_env(name));
+    assert!(
+        path.is_file(),
+        "LGS_LOCALNET=1 requires {name} to be a file: {}",
+        path.display()
+    );
+    path
+}
+
+fn required_dir(name: &str) -> PathBuf {
+    let path = PathBuf::from(required_env(name));
+    assert!(
+        path.is_dir(),
+        "LGS_LOCALNET=1 requires {name} to be a directory: {}",
+        path.display()
+    );
+    path
+}
+
+/// Real chain/storage roundtrip. The regular Rust matrix leaves this dormant;
+/// setting LGS_LOCALNET=1 switches this test to production backends only.
+#[tokio::test]
+async fn localnet_host_query_download() {
+    if std::env::var("LGS_LOCALNET").as_deref() != Ok("1") {
+        return;
+    }
+
+    let registry = SpelCliRegistryClient {
+        cli_bin: required_file("OSM_CLI_BIN"),
+        idl_path: required_file("OSM_IDL_PATH"),
+        program_id: required_env("OSM_PROGRAM_ID"),
+        lgs_bin: PathBuf::from(std::env::var("LGS_BIN").unwrap_or_else(|_| "lgs".into())),
+        wallet_home: required_dir("LEE_WALLET_HOME_DIR"),
+        signer_account_id: required_env("OSM_SIGNER_ACCOUNT_ID"),
+    };
+    let storage = LogoscoreStorage::new(
+        required_file("LOGOSCORE_BIN"),
+        required_dir("STORAGE_MODULES_DIR"),
+        required_file("OSM_STORAGE_CONFIG"),
+    );
+    let mut sdk = OsmSdk::new(Box::new(storage), Box::new(registry));
+    sdk.registry
+        .init_registry()
+        .await
+        .expect("initialize registry");
+
+    let body = synthetic_snapshot(7, 64 * 1024);
+    let server = spin_geofabrik(&body).await;
+    sdk.geofabrik
+        .set_url_rewrite("https://download.geofabrik.de", server.uri());
+
+    let entry = sdk
+        .host_region("germany", [42u8; 32], HostOpts::default())
+        .await
+        .expect("host through Logos Storage and the deployed sequencer");
+    assert!(entry.hosted);
+    assert!(entry.cid.starts_with('b'), "storage must return a CID");
+
+    let resolved = sdk
+        .resolve("germany")
+        .await
+        .expect("query the deployed registry")
+        .expect("registered entry");
+    assert_eq!(resolved.cid, entry.cid);
+    assert_eq!(resolved.checksum, md5_of(&body));
+
+    let dir = tempfile::tempdir().unwrap();
+    let report = sdk
+        .download_region("germany", dir.path())
+        .await
+        .expect("download stored CID");
+    assert_eq!(report.source, osm_sdk::DownloadSource::LogosStorage);
+    assert!(report.verified);
+    assert_eq!(report.bytes, body.len() as u64);
     assert_eq!(
         osm_sdk::geofabrik::md5_file(&report.path).await.unwrap(),
         md5_of(&body)

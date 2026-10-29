@@ -262,9 +262,9 @@ mutation and takedown risk that this design exists to remove.
   so no install URL is recorded here.
 - [x] **IDL via SPEL** — `make idl` generates the tracked IDL from the guest
   source, and the chain job fails if the generated artifact is stale.
-- [x] **End-to-end tests in CI** — `tests/e2e` covers host → query → download;
-  the `chain` job runs it against a real local sequencer, and the default
-  branch CI does not depend on live Geofabrik.
+- [ ] **End-to-end tests in CI** — `tests/e2e` covers host → query → download;
+  the Rust matrix uses in-memory backends, while the chain test uses real
+  backends when the sequencer and Logos Storage runner configuration is present.
 - [ ] **README** — this document covers setup, CLI and app usage, the region
   set and the deployment steps, but the deployed Program ID is pending the
   testnet step above.
@@ -394,6 +394,13 @@ The SDK also needs the generated instruction CLI (`make cli`) and, for real
 storage, `logoscore` with `storage_module` on its module path. Defaults are
 `./target/debug/osm_registry_cli`, `./idl/osm-registry.idl.json`, `./modules`
 and `storage.json`; override them in `osm.toml` or with the flags below.
+
+The chain-only e2e test selects real backends with `LGS_LOCALNET=1`. It
+requires `OSM_PROGRAM_ID`, `OSM_CLI_BIN`, `OSM_IDL_PATH`,
+`OSM_SIGNER_ACCOUNT_ID`, `LEE_WALLET_HOME_DIR`, `LOGOSCORE_BIN`,
+`STORAGE_MODULES_DIR`, and `OSM_STORAGE_CONFIG`. The workflow supplies the
+chain and wallet paths; configure the three Logos Storage paths as repository
+variables for the chain runner. The regular Rust e2e test remains in-memory.
 
 ### CLI usage
 

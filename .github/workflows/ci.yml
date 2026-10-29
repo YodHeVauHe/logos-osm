@@ -73,16 +73,34 @@ jobs:
           lgs setup
           lgs localnet start
           lgs localnet status
+      - name: Build registry instruction client
+        run: make cli
       - name: Deploy registry
         run: lgs deploy
       - name: Mint signer + initialize registry
         run: |
-          lgs wallet -- account new public
           lgs wallet topup 1
+      - name: Require real Logos Storage runner configuration
+        env:
+          LOGOSCORE_BIN: ${{ vars.LOGOSCORE_BIN }}
+          STORAGE_MODULES_DIR: ${{ vars.STORAGE_MODULES_DIR }}
+          OSM_STORAGE_CONFIG: ${{ vars.OSM_STORAGE_CONFIG }}
+        run: |
+          test -n "$LOGOSCORE_BIN" && test -x "$LOGOSCORE_BIN"
+          test -n "$STORAGE_MODULES_DIR" && test -d "$STORAGE_MODULES_DIR"
+          test -n "$OSM_STORAGE_CONFIG" && test -f "$OSM_STORAGE_CONFIG"
       - name: On-chain e2e (host → query → download)
         env:
           LGS_LOCALNET: "1"
           OSM_PROGRAM_ID: ${{ steps.pid.outputs.program_id }}
+          OSM_CLI_BIN: ${{ github.workspace }}/examples/target/debug/osm_registry_cli
+          OSM_IDL_PATH: ${{ github.workspace }}/idl/osm-registry.idl.json
+          LGS_BIN: lgs
+          LEE_WALLET_HOME_DIR: ${{ github.workspace }}/.scaffold/wallet
+          OSM_SIGNER_ACCOUNT_ID: Public/CbgR6tj5kWx5oziiFptM7jMvrQeYY3Mzaao6ciuhSr2r
+          LOGOSCORE_BIN: ${{ vars.LOGOSCORE_BIN }}
+          STORAGE_MODULES_DIR: ${{ vars.STORAGE_MODULES_DIR }}
+          OSM_STORAGE_CONFIG: ${{ vars.OSM_STORAGE_CONFIG }}
         run: cargo test -p osm_e2e --features e2e -- --nocapture
       - name: Capture cycle counts (register / register_batch)
         run: |
