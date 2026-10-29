@@ -48,13 +48,16 @@ jobs:
         with:
           python-version: "3.13"
       - name: Install native build dependencies
-        run: sudo apt-get update && sudo apt-get install -y clang libclang-dev
+        run: |
+          sudo apt-get update && sudo apt-get install -y clang libclang-dev
+          libclang="$(find /usr/lib/llvm-*/lib -maxdepth 1 -name 'libclang.so*' | sort -V | tail -n 1)"
+          test -n "$libclang"
+          echo "LIBCLANG_PATH=$(dirname "$libclang")" >> "$GITHUB_ENV"
       - name: Checkout LEZ v0.3.1
         run: git clone --depth 1 --branch v0.3.1 https://github.com/logos-blockchain/logos-execution-zone.git /tmp/lez
       - name: Build LEZ v0.3.1 sequencer and wallet
         working-directory: /tmp/lez
         env:
-          LIBCLANG_PATH: /usr/lib/llvm-18/lib
           BINDGEN_EXTRA_CLANG_ARGS: -I/usr/include
         run: |
           cargo build --features standalone -p sequencer_service
