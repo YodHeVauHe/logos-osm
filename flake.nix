@@ -29,14 +29,23 @@
         flakeInputs = inputs // { osm = osmModule; };
       };
 
+      osmConsumerModule = logos-module-builder.lib.mkLogosModule {
+        src = ./examples/basecamp-consumer;
+        configFile = ./examples/basecamp-consumer/metadata.json;
+        flakeInputs = inputs // { osm = osmModule; };
+      };
+
       packagesFor = system:
         let
           osmPkgs = osmModule.packages.${system} or {};
           appPkgs = osmAppModule.packages.${system} or {};
+          consumerPkgs = osmConsumerModule.packages.${system} or {};
           pfx = tag: set: nixpkgs.lib.mapAttrs'
             (k: v: nixpkgs.lib.nameValuePair "${tag}-${k}" v) set;
         in
-        pfx "osm" osmPkgs // pfx "osm-app" appPkgs;
+        pfx "osm" osmPkgs // pfx "osm-app" appPkgs // {
+          osm-consumer-example = consumerPkgs.install;
+        };
 
       devShellsFor = system: {
         default = nixpkgs.legacyPackages.${system}.mkShell {
