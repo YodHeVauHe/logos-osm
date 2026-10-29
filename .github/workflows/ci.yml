@@ -104,19 +104,15 @@ jobs:
         run: cargo test -p osm_e2e --features e2e -- --nocapture
       - name: Capture cycle counts (register / register_batch)
         run: |
-          lgs localnet logs --tail 500 > localnet.log || true
-          grep -o "CU register[a-z_]* cycles=[0-9]*" localnet.log | tee cycles.txt || true
-          {
-            echo "# Measured cycle counts"
-            echo ""
-            '```'
-            cat cycles.txt
-            '```'
-          } > docs/cycles.md
+          lgs localnet logs --tail 500 > localnet.log
+          grep -E 'CU register_region entries=1 cycles=[1-9][0-9]*' localnet.log > cycles.txt
+          grep -E 'CU register_batch entries=2 cycles=[1-9][0-9]*' localnet.log >> cycles.txt
+          grep -q 'CU register_region entries=1 cycles=[1-9][0-9]*' cycles.txt
+          grep -q 'CU register_batch entries=2 cycles=[1-9][0-9]*' cycles.txt
       - uses: actions/upload-artifact@v4
         with:
           name: cycles
-          path: docs/cycles.md
+          path: cycles.txt
 
   nix:
     name: nix (Basecamp module + app)

@@ -20,7 +20,7 @@ criterion checklist is in the [README](../README.md#success-criteria-checklist).
 | Query by region, parent and CID | Off-chain borsh decode + filters | `osm_sdk/src/registry.rs` |
 | Batch registration | `register_batch` with hex(borsh(Vec<RegionEntry>)) | Guest instruction, `batch_payload_roundtrip` |
 | Consumer SDK/module separate from the distribution app | `osm_sdk` full API; `osm-module` consumer subset over FFI | `docs/sdk.md`, `osm-module/metadata.json` |
-| End-to-end pipeline | In-memory CI suite and a local-sequencer chain job | `tests/e2e/src/lib.rs`, `.github/workflows/ci.yml` |
+| End-to-end pipeline | In-memory CI suite; chain job configured for a local sequencer and Logos Storage | `tests/e2e/src/lib.rs`, `.github/workflows/ci.yml` |
 
 **Limitations.** The deliverable distributes snapshots only: no live OSM sync,
 map rendering, geocoding, routing, navigation or custom regions. Those are out
@@ -73,11 +73,10 @@ prerequisites and the exact commands.
 - The full 72-entry registry occupies roughly 19 KB, well below the 100 KiB
   account limit; a bulk registration is a single transaction.
 - The guest logs cycle counts around `init_registry`, `register_region` and
-  `register_batch`, and the chain CI job greps those lines.
-- `docs/cycles.md` documents the measurement method and the expected linear
-  scaling of batch registration. The measured values are still placeholders
-  produced by CI; they are not presented as results until captured on a green
-  chain run.
+  `register_batch`; the chain workflow requires one-entry and two-entry records
+  and uploads them for review.
+- `docs/cycles.md` documents the measurement method. No numeric measurements
+  have been captured and committed yet, so no cycle result is claimed.
 
 No throughput or latency claims are made beyond the design properties above.
 
@@ -89,13 +88,15 @@ No throughput or latency claims are made beyond the design properties above.
   (`osm-app`). The guest stays thin because validation lives in the shared
   crate.
 - **Tests.** Unit and integration tests cover validation, Geofabrik parsing,
-  versions, storage, registry payloads, workflows and the e2e pipeline. The
-  e2e suite runs in memory on every push and against a local sequencer in the
-  chain job.
-- **CI.** `rust` (Ubuntu + Windows) runs fmt, clippy, tests and e2e; `chain`
-  builds the guest deterministically, generates the IDL, starts `lgs localnet`,
-  deploys, runs the on-chain e2e and captures cycle logs; `nix` builds the
-  module and app; `live-geofabrik` is dispatch-only.
+  versions, storage, registry payloads, workflows and the in-memory e2e
+  pipeline. The real-backend test requires the sequencer, wallet and Logos
+  Storage configuration.
+- **CI.** `rust` (Ubuntu + Windows) runs fmt, clippy, tests and in-memory e2e;
+  `chain` is configured to build and deploy the guest, run the sequencer and
+  Storage e2e, and require both cycle records; the workflow fails when required
+  Logos Storage runner paths are missing. `nix` builds the module and app;
+  `live-geofabrik` is dispatch-only. No successful chain workflow result is
+  recorded in this repository yet.
 - **Toolchain pinning.** `spel-framework` and `lee_core` are pinned, and the
   known-good framework is vendored, so the Program ID is reproducible.
 - **Documentation.** README, SDK guide, catalog procedure, cycle methodology
@@ -110,9 +111,9 @@ No throughput or latency claims are made beyond the design properties above.
 
 | Item | Current state | What remains |
 |---|---|---|
-| Testnet 0.4 | Local-sequencer deployment is in CI | Deploy to the public zone and record the Program ID and registry PDA |
+| Testnet 0.4 | No public deployment evidence is recorded; the chain workflow is configured for localnet | Deploy to the public zone and record the Program ID and registry PDA |
 | IDL | `make idl` generates the tracked artifact; CI fails if it is stale and uploads it for inspection | Keep regeneration deterministic as the guest interface changes |
-| Cycle counts | Guest instrumentation + CI capture are wired | Commit measured values in `docs/cycles.md` |
+| Cycle counts | Guest instrumentation and fail-closed CI artifact capture are wired; no successful capture is recorded here | Commit values from a successful `cycles` artifact in `docs/cycles.md` |
 | Module catalog | Fork/release procedure documented | Publish the catalog and record its `logos-repo.json` URL |
 | Adoption | No evidence claimed | 15 countries / 25 verified entries, 5 independent modules (3 Basecamp UI apps), macOS coverage |
 

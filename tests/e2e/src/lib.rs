@@ -173,6 +173,19 @@ async fn localnet_host_query_download() {
     assert!(entry.hosted);
     assert!(entry.cid.starts_with('b'), "storage must return a CID");
 
+    // Exercise one real batch transaction with a second predefined region;
+    // the same stored snapshot/CID keeps the fixture deterministic.
+    let kenya = osm_sdk::regions::get("kenya").expect("predefined Kenya");
+    let mut batch_entry = entry.clone();
+    batch_entry.region = kenya.region.clone();
+    batch_entry.parent = kenya.parent.clone();
+    batch_entry.level = kenya.level;
+    batch_entry.source_url = kenya.pbf_url.clone();
+    sdk.registry
+        .register(&[entry.clone(), batch_entry], [42u8; 32])
+        .await
+        .expect("register batch on the deployed sequencer");
+
     let resolved = sdk
         .resolve("germany")
         .await

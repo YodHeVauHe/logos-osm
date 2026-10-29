@@ -99,7 +99,10 @@ mod osm_registry {
         write_registry(&mut registry.account.data, state)?;
 
         let cu_end = risc0_zkvm::guest::env::cycle_count();
-        risc0_zkvm::guest::env::log(&format!("CU register_region cycles={}", cu_end - cu_start));
+        risc0_zkvm::guest::env::log(&format!(
+            "CU register_region entries=1 cycles={}",
+            cu_end - cu_start
+        ));
         Ok(SpelOutput::execute(vec![registry, authority], vec![]))
     }
 
@@ -126,6 +129,7 @@ mod osm_registry {
             ));
         }
         let mut state = decode_registry(&registry.account.data)?;
+        let batch_size = entries.len();
         for entry in entries {
             if entry.timestamp <= 0 {
                 return Err(SpelError::custom(
@@ -141,7 +145,11 @@ mod osm_registry {
         write_registry(&mut registry.account.data, state)?;
 
         let cu_end = risc0_zkvm::guest::env::cycle_count();
-        risc0_zkvm::guest::env::log(&format!("CU register_batch cycles={}", cu_end - cu_start));
+        risc0_zkvm::guest::env::log(&format!(
+            "CU register_batch entries={} cycles={}",
+            batch_size,
+            cu_end - cu_start
+        ));
         Ok(SpelOutput::execute(vec![registry, authority], vec![]))
     }
 
