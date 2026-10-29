@@ -1799,8 +1799,13 @@ fn expand_generate_idl(file_path: &str, span_token: &syn::LitStr) -> syn::Result
     let resolved_path = if std::path::Path::new(file_path).exists() {
         file_path.to_string()
     } else if let Ok(manifest_dir) = std::env::var("CARGO_MANIFEST_DIR") {
-        let p = std::path::Path::new(&manifest_dir).join(file_path);
-        p.to_string_lossy().to_string()
+        let manifest = std::path::Path::new(&manifest_dir);
+        let from_bin = manifest.join("src/bin").join(file_path);
+        if from_bin.exists() {
+            from_bin.to_string_lossy().to_string()
+        } else {
+            manifest.join(file_path).to_string_lossy().to_string()
+        }
     } else {
         file_path.to_string()
     };
