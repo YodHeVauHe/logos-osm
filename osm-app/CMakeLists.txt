@@ -16,4 +16,14 @@ logos_module(
         src/osm_app_interface.h
         src/osm_app_plugin.h
         src/osm_app_plugin.cpp
+        src/module_json.h
 )
+
+include(CTest)
+if(BUILD_TESTING)
+    find_package(Qt6 REQUIRED COMPONENTS Core)
+    add_executable(module_json_test tests/module_json_test.cpp)
+    target_link_libraries(module_json_test PRIVATE Qt6::Core)
+    target_compile_options(module_json_test PRIVATE -UNDEBUG)
+    add_test(NAME module_json_test COMMAND module_json_test)
+endif()

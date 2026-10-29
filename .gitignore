@@ -13,3 +13,5 @@ result-*
 node_modules
 __pycache__
 lmb.md
+
+.scaffold/

@@ -2,12 +2,12 @@
 #define OSM_APP_PLUGIN_H
 
 #include <QObject>
+#include <QJsonValue>
 #include <QString>
 
 #include "osm_app_interface.h"
 
 class LogosAPI;
-class LogosAPIClient;
 class LogosObject;
 
 // UI-facing bridge for the OSM distribution app. State is exposed as Qt
@@ -25,8 +25,6 @@ public:
 
     QString name()    const override { return QStringLiteral("osm-app"); }
     QString version() const override { return QStringLiteral("1.0.0"); }
-
-    void initLogos(LogosAPI* api) override;
 
     // RO properties (rep file)
     QString regions() const { return m_regions; }
@@ -62,7 +60,7 @@ signals:
     void lastVerificationChanged(const QString&);
 
 private:
-    QJsonObject callModule(const char* method, const QJsonArray& args);
+    QJsonValue callModule(const char* method, const QJsonArray& args, QString* error = nullptr);
 
     QString m_regions = QStringLiteral("[]");
     QString m_registryEntries = QStringLiteral("[]");
@@ -72,8 +70,6 @@ private:
     bool m_working = false;
     QString m_lastVerification;
 
-    LogosAPI* m_api = nullptr;
-    LogosAPIClient* m_osmClient = nullptr;
 };
 
 #endif // OSM_APP_PLUGIN_H

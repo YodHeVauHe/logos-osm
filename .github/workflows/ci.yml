@@ -42,6 +42,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
       - name: Install RISC0 toolchain (rzup)
         run: |
           curl -L https://risczero.com/install | bash
@@ -59,9 +62,9 @@ jobs:
           echo "Program ID: $PID"
       - name: Generate IDL
         run: make idl
-      - name: IDL freshness (warning until the generated IDL is committed)
+      - name: IDL freshness
         run: |
-          git diff --exit-code idl/             || echo "::warning::IDL differs from the committed file — idl artifact holds the fresh copy"
+          git diff --exit-code -- idl/osm-registry.idl.json
       - uses: actions/upload-artifact@v4
         with:
           name: idl
@@ -70,35 +73,50 @@ jobs:
         run: cargo install --locked --git https://github.com/logos-co/logos-scaffold logos-scaffold
       - name: Start localnet
         run: |
-          lgs setup
+          PYTHON_LIBDIR=$(python -c 'import sysconfig; print(sysconfig.get_config_var("LIBDIR"))')
+          LIBRARY_PATH="$PYTHON_LIBDIR" LD_LIBRARY_PATH="$PYTHON_LIBDIR" lgs setup
           lgs localnet start
           lgs localnet status
-      - name: Deploy registry
-        run: lgs deploy
-      - name: Mint signer + initialize registry
+      - name: Build registry instruction client
         run: |
-          lgs wallet -- account new public
-          lgs wallet topup 1
-      - name: On-chain e2e (host → query → download)
+          PYTHON_LIBDIR=$(python -c 'import sysconfig; print(sysconfig.get_config_var("LIBDIR"))')
+          LIBRARY_PATH="$PYTHON_LIBDIR" LD_LIBRARY_PATH="$PYTHON_LIBDIR" make cli
+      - name: Deploy registry
+        run: lgs deploy --program-path methods/guest/target/riscv32im-risc0-zkvm-elf/osm_registry.bin
+      - name: Derive local signer account
+        id: signer
+        run: |
+          ADDRESS=$(LOGOS_SCAFFOLD_QUIET=1 lgs wallet -- account new public --label lp0018-e2e \
+            | python -c 'import re,sys; m=re.search(r"Generated new account with account_id (Public/[1-9A-HJ-NP-Za-km-z]+)", sys.stdin.read()); assert m, "lgs did not print the new public account"; print(m.group(1))')
+          lgs wallet topup "$ADDRESS" --json
+          echo "account_id=$ADDRESS" >> "$GITHUB_OUTPUT"
+      - name: On-chain registry e2e (host → register → query)
         env:
           LGS_LOCALNET: "1"
           OSM_PROGRAM_ID: ${{ steps.pid.outputs.program_id }}
-        run: cargo test -p osm_e2e --features e2e -- --nocapture
+          OSM_CLI_BIN: ${{ github.workspace }}/examples/target/debug/osm_registry_cli
+          OSM_IDL_PATH: ${{ github.workspace }}/idl/osm-registry.idl.json
+          LGS_BIN: lgs
+          LEE_WALLET_HOME_DIR: ${{ github.workspace }}/.scaffold/wallet
+          OSM_SIGNER_ACCOUNT_ID: ${{ steps.signer.outputs.account_id }}
+        run: |
+          PYTHON_LIBDIR=$(python -c 'import sysconfig; print(sysconfig.get_config_var("LIBDIR"))')
+          LIBRARY_PATH="$PYTHON_LIBDIR" LD_LIBRARY_PATH="$PYTHON_LIBDIR" \
+            cargo test -p osm_e2e --features e2e localnet_registry_host_query -- --nocapture
       - name: Capture cycle counts (register / register_batch)
         run: |
-          lgs localnet logs --tail 500 > localnet.log || true
-          grep -o "CU register[a-z_]* cycles=[0-9]*" localnet.log | tee cycles.txt || true
-          {
-            echo "# Measured cycle counts"
-            echo ""
-            '```'
-            cat cycles.txt
-            '```'
-          } > docs/cycles.md
+          lgs localnet logs --tail 500 > localnet.log
+          grep -E 'CU register_region entries=1 cycles=[1-9][0-9]*' localnet.log > cycles.txt
+          grep -E 'CU register_batch entries=2 cycles=[1-9][0-9]*' localnet.log >> cycles.txt
+          grep -q 'CU register_region entries=1 cycles=[1-9][0-9]*' cycles.txt
+          grep -q 'CU register_batch entries=2 cycles=[1-9][0-9]*' cycles.txt
       - uses: actions/upload-artifact@v4
         with:
           name: cycles
-          path: docs/cycles.md
+          path: cycles.txt
+      - name: Stop localnet
+        if: always()
+        run: lgs localnet stop
 
   nix:
     name: nix (Basecamp module + app)

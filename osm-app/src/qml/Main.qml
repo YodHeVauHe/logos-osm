@@ -19,7 +19,14 @@ ColumnLayout {
     property var regionList: {
         try { return JSON.parse(appBridge.regions) } catch (e) { return [] }
     }
-    property var entryMap: ({})
+    property var entryMap: {
+        const entries = ({})
+        let rows = []
+        try { rows = JSON.parse(appBridge.registryEntries || "[]") } catch (e) { rows = [] }
+        for (const entry of rows)
+            if (entry && entry.region) entries[entry.region] = entry
+        return entries
+    }
     property var updateList: {
         try { return JSON.parse(appBridge.updates) } catch (e) { return [] }
     }

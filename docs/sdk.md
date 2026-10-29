@@ -76,6 +76,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 `resolve` on an unregistered predefined region returns `Ok(None)`; asking
 for a region outside the frozen set is `Err(SdkError::UnknownRegion)`.
 
+## Basecamp module consumer
+
+[`examples/basecamp-consumer`](../examples/basecamp-consumer) is a minimal
+universal Logos module that declares `osm` as a required module dependency.
+Its generated typed client calls `modules().osm.resolve(region)` to return the
+registry entry JSON and `modules().osm.downloadRegion(region, destDir)` to
+download the hosted snapshot (or use the module's Geofabrik fallback). The
+consumer does not link the Rust SDK or depend on `osm-app`.
+
+Build the installable consumer package from the repository root with:
+
+```sh
+nix build .#osm-consumer-example
+```
+
+The root flake passes its `osm` module derivation to `logos-module-builder`,
+which generates the dependency wrapper and bundles the OSM module and its
+transitive dependencies into the consumer package.
+
 ## Hosting (distribution face)
 
 ```rust

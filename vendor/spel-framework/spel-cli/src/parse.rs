@@ -10,6 +10,7 @@ pub enum ParsedValue {
     U8(u8),
     U32(u32),
     U64(u64),
+    I64(i64),
     U128(u128),
     Str(String),
     ByteArray(Vec<u8>),         // [u8; N]
@@ -27,6 +28,7 @@ impl std::fmt::Display for ParsedValue {
             ParsedValue::U8(v) => write!(f, "{}", v),
             ParsedValue::U32(v) => write!(f, "{}", v),
             ParsedValue::U64(v) => write!(f, "{}", v),
+            ParsedValue::I64(v) => write!(f, "{}", v),
             ParsedValue::U128(v) => write!(f, "{}", v),
             ParsedValue::Str(s) => write!(f, "\"{}\"", s),
             ParsedValue::ByteArray(bytes) => {
@@ -75,6 +77,7 @@ fn parse_primitive(raw: &str, prim: &str) -> Result<ParsedValue, String> {
         "u8" => raw.parse::<u8>().map(ParsedValue::U8).map_err(|e| format!("Invalid u8 '{}': {}", raw, e)),
         "u32" => raw.parse::<u32>().map(ParsedValue::U32).map_err(|e| format!("Invalid u32 '{}': {}", raw, e)),
         "u64" => raw.parse::<u64>().map(ParsedValue::U64).map_err(|e| format!("Invalid u64 '{}': {}", raw, e)),
+        "i64" => raw.parse::<i64>().map(ParsedValue::I64).map_err(|e| format!("Invalid i64 '{}': {}", raw, e)),
         "u128" => raw.parse::<u128>().map(ParsedValue::U128).map_err(|e| format!("Invalid u128 '{}': {}", raw, e)),
         "program_id" => parse_program_id(raw),
         "bool" => match raw {
@@ -253,5 +256,11 @@ mod tests {
             matches!(&parsed, ParsedValue::Raw(_)),
             "Primitive('[u8; 32]') should fall through to Raw, got {:?}", parsed
         );
+    }
+
+    #[test]
+    fn signed_i64_primitive_parses_without_wrapping_as_raw() {
+        let idl_type = IdlType::Primitive("i64".into());
+        assert!(matches!(parse_value("-42", &idl_type), Ok(ParsedValue::I64(-42))));
     }
 }

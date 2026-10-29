@@ -94,12 +94,18 @@ pub fn query_by_parent<'a>(
         .values()
         .filter(|e| e.parent.as_deref() == Some(parent))
         .collect();
-    v.sort_by_key(|e| e.timestamp);
+    sort_entries(&mut v);
     v
 }
 
 pub fn query_by_cid<'a>(map: &'a BTreeMap<String, RegionEntry>, cid: &str) -> Vec<&'a RegionEntry> {
-    map.values().filter(|e| e.cid == cid).collect()
+    let mut v: Vec<&RegionEntry> = map.values().filter(|e| e.cid == cid).collect();
+    sort_entries(&mut v);
+    v
+}
+
+fn sort_entries(entries: &mut [&RegionEntry]) {
+    entries.sort_by(|a, b| (a.timestamp, a.region.as_str()).cmp(&(b.timestamp, b.region.as_str())));
 }
 
 // ── SPEL CLI + lgs implementation ─────────────────────────────────────────
@@ -192,7 +198,7 @@ impl RegistryClient for SpelCliRegistryClient {
         cmd.args([
             "--dry-run=text",
             "init-registry",
-            "--anchorer",
+            "--authority",
             &self.signer_account_id,
         ]);
         let (stdout, stderr, ok) = Self::run(&mut cmd).await?;
@@ -212,7 +218,7 @@ impl RegistryClient for SpelCliRegistryClient {
             return Ok(());
         }
         let mut cmd = self.cli_cmd();
-        cmd.args(["init-registry", "--anchorer", &self.signer_account_id]);
+        cmd.args(["init-registry", "--authority", &self.signer_account_id]);
         let (stdout, stderr, ok) = Self::run(&mut cmd).await?;
         if !ok {
             return Err(SdkError::Other(anyhow::anyhow!(
@@ -264,6 +270,8 @@ impl RegistryClient for SpelCliRegistryClient {
                 &e.timestamp.to_string(),
                 "--registered-by",
                 &by,
+                "--authority",
+                &self.signer_account_id,
             ]);
         } else {
             if entries.len() > MAX_BATCH {
@@ -276,6 +284,8 @@ impl RegistryClient for SpelCliRegistryClient {
                 &payload,
                 "--registered-by",
                 &by,
+                "--authority",
+                &self.signer_account_id,
             ]);
         }
         let (stdout, stderr, ok) = Self::run(&mut cmd).await?;
@@ -445,11 +455,47 @@ mod tests {
     #[test]
     fn query_by_cid_matches_multiple() {
         let mut map = BTreeMap::new();
-        map.insert("a".into(), entry("a", None, 1));
-        let mut b = entry("b", None, 2);
+        map.insert("a".into(), entry("a", None, 3));
+        let mut b = entry("b", None, 1);
         b.cid = map["a"].cid.clone();
         map.insert("b".into(), b);
-        assert_eq!(query_by_cid(&map, &map["a"].cid).len(), 2);
+        let matches = query_by_cid(&map, &map["a"].cid);
+        assert_eq!(matches.len(), 2);
+        assert_eq!(
+            matches.iter().map(|e| e.timestamp).collect::<Vec<_>>(),
+            vec![1, 3]
+        );
+    }
+
+    #[test]
+    fn collection_queries_sort_by_timestamp_then_region_and_handle_empty() {
+        let mut map = BTreeMap::new();
+        map.insert("india/west".into(), entry("india/west", Some("india"), 2));
+        map.insert("india/east".into(), entry("india/east", Some("india"), 1));
+        map.insert("india/north".into(), entry("india/north", Some("india"), 1));
+
+        let by_parent = query_by_parent(&map, "india");
+        assert_eq!(
+            by_parent
+                .iter()
+                .map(|e| e.region.as_str())
+                .collect::<Vec<_>>(),
+            vec!["india/east", "india/north", "india/west"]
+        );
+        let by_cid = query_by_cid(&map, "missing");
+        assert!(by_cid.is_empty());
+
+        let shared_cid = "bafy-shared";
+        for entry in map.values_mut() {
+            entry.cid = shared_cid.into();
+        }
+        assert_eq!(
+            query_by_cid(&map, shared_cid)
+                .iter()
+                .map(|e| e.region.as_str())
+                .collect::<Vec<_>>(),
+            vec!["india/east", "india/north", "india/west"]
+        );
     }
 
     #[tokio::test]

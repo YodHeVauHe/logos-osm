@@ -22,9 +22,9 @@ class OsmApp
     // Last download/import verification result ("verified"/"MISMATCH"/"")
     PROP(QString lastVerification READWRITE)
 
-    SLOT void hostRegions(QString regionsCsv)
-    SLOT void importRegion(QString region, QString filePath, QString md5Override)
-    SLOT void downloadRegion(QString region, QString destDir)
-    SLOT void refresh()
-    SLOT void checkUpdates()
+    SLOT(void hostRegions(QString regionsCsv))
+    SLOT(void importRegion(QString region, QString filePath, QString md5Override))
+    SLOT(void downloadRegion(QString region, QString destDir))
+    SLOT(void refresh())
+    SLOT(void checkUpdates())
 };

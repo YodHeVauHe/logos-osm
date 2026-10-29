@@ -5,38 +5,40 @@
 #include <QJsonObject>
 
 #include "logos_api.h"
+#include "logos_api_client.h"
+#include "module_json.h"
 
 OsmAppPlugin::OsmAppPlugin() = default;
 
 OsmAppPlugin::~OsmAppPlugin() = default;
 
-void OsmAppPlugin::initLogos(LogosAPI* api) {
-    m_api = api;
-    m_osmClient = new LogosAPIClient(QStringLiteral("osm"),
-                                     QStringLiteral("osm-app"),
-                                     m_api->getTokenManager(), this);
-    refresh();
-}
-
-QJsonObject OsmAppPlugin::callModule(const char* method, const QJsonArray& args) {
-    if (!m_osmClient) return {};
-    // The osm module returns JSON strings; unwrap and parse.
-    const QVariant v = m_osmClient->invokeRemoteMethod(
+QJsonValue OsmAppPlugin::callModule(const char* method, const QJsonArray& args, QString* error) {
+    if (!logosAPI) {
+        if (error) *error = QStringLiteral("Logos API is unavailable");
+        return {};
+    }
+    LogosAPIClient* client = logosAPI->getClient(QStringLiteral("osm"));
+    if (!client) {
+        if (error) *error = QStringLiteral("osm module is unavailable");
+        return {};
+    }
+    const QVariant v = client->invokeRemoteMethod(
         QStringLiteral("osm"), QString::fromLatin1(method), args,
         Timeout(60 * 1000));
     if (v.canConvert<LogosResult>()) {
         const LogosResult lr = v.value<LogosResult>();
-        if (!lr.success) return {};
-        return QJsonDocument::fromJson(lr.value.toString().toUtf8()).object();
+        if (!lr.success) {
+            if (error) *error = lr.value.toString();
+            return {};
+        }
+        return module_json::parseResponse(lr.value.toString(), error);
     }
     const QString text = v.toString();
-    if (text.isEmpty()) return {};
-    const QJsonObject obj = QJsonDocument::fromJson(text.toUtf8()).object();
-    if (obj.contains(QStringLiteral("ok")) && !obj.value(QStringLiteral("ok")).toBool())
+    if (text.isEmpty()) {
+        if (error) *error = QStringLiteral("osm module returned an empty response");
         return {};
-    return obj.contains(QStringLiteral("ok")) && obj.value(QStringLiteral("value")).isObject()
-               ? obj.value(QStringLiteral("value")).toObject()
-               : obj;
+    }
+    return module_json::parseResponse(text, error);
 }
 
 void OsmAppPlugin::setRegions(const QString& v) {
@@ -82,36 +84,48 @@ void OsmAppPlugin::setLastVerification(const QString& v) {
 }
 
 void OsmAppPlugin::refresh() {
-    const QJsonObject d = callModule("discover", {});
-    if (!d.isEmpty()) setRegions(QString::fromUtf8(QJsonDocument(d).toJson(QJsonDocument::Compact)));
+    QString error;
+    const QJsonValue discovered = callModule("discover", {}, &error);
+    if (!discovered.isArray()) {
+        setStatus(error.isEmpty() ? QStringLiteral("discover returned a non-array response") : error);
+        return;
+    }
+    setRegions(QString::fromUtf8(QJsonDocument(discovered.toArray()).toJson(QJsonDocument::Compact)));
 
-    // The registry snapshot: query by empty parent is not valid, so the app
-    // reads the whole registry via the module's query face per level.
-    QJsonObject entries;
-    QJsonArray all;
-    const QJsonObject countries = callModule("query", {QStringLiteral("parent"), QStringLiteral("")});
-    Q_UNUSED(countries);
-    // Consumers typically resolve per region; the bulk view uses discover +
-    // per-region resolve on demand in the QML layer.
+    QJsonArray entries;
+    for (const QJsonValue& value : discovered.toArray()) {
+        const QString region = value.toObject().value(QStringLiteral("region")).toString();
+        if (region.isEmpty()) continue;
+        QString queryError;
+        const QJsonValue entry = callModule("resolve", {region}, &queryError);
+        if (entry.isObject() && !entry.toObject().isEmpty()) {
+            entries.append(entry);
+        } else if (!queryError.isEmpty()) {
+            setStatus(queryError);
+        }
+    }
     setRegistryEntries(QString::fromUtf8(QJsonDocument(entries).toJson(QJsonDocument::Compact)));
 }
 
 void OsmAppPlugin::checkUpdates() {
     setPhase(QStringLiteral("checking"));
-    const QJsonObject u = callModule("checkUpdates", {});
-    setUpdates(QString::fromUtf8(QJsonDocument(u).toJson(QJsonDocument::Compact)));
-    setPhase(QStringLiteral("idle"));
+    QString error;
+    const QJsonValue updates = callModule("checkUpdates", {}, &error);
+    if (updates.isArray())
+        setUpdates(QString::fromUtf8(QJsonDocument(updates.toArray()).toJson(QJsonDocument::Compact)));
+    if (!error.isEmpty()) setStatus(error);
+    setPhase(error.isEmpty() ? QStringLiteral("idle") : QStringLiteral("error"));
 }
 
 void OsmAppPlugin::hostRegions(const QString& regionsCsv) {
     setWorking(true);
     setPhase(QStringLiteral("hosting"));
     setStatus(QStringLiteral("hosting %1…").arg(regionsCsv));
-    const QJsonObject r = callModule("hostRegions", {regionsCsv});
+    QString error;
+    callModule("hostRegions", {regionsCsv}, &error);
     setWorking(false);
-    setPhase(r.isEmpty() ? QStringLiteral("error") : QStringLiteral("idle"));
-    setStatus(r.isEmpty() ? QStringLiteral("host failed — see osm module logs")
-                          : QStringLiteral("hosted %1 region(s)").arg(r.size()));
+    setPhase(error.isEmpty() ? QStringLiteral("idle") : QStringLiteral("error"));
+    setStatus(error.isEmpty() ? QStringLiteral("hosting complete") : error);
     refresh();
 }
 
@@ -120,12 +134,16 @@ void OsmAppPlugin::importRegion(const QString& region, const QString& filePath,
     setWorking(true);
     setPhase(QStringLiteral("importing"));
     setStatus(QStringLiteral("importing %1…").arg(region));
-    const QJsonObject r = callModule("importRegion", {region, filePath, md5Override});
+    QString error;
+    const QJsonValue r = callModule("importRegion", {region, filePath, md5Override}, &error);
     setWorking(false);
-    setLastVerification(r.isEmpty() ? QStringLiteral("MISMATCH") : QStringLiteral("verified"));
-    setPhase(r.isEmpty() ? QStringLiteral("error") : QStringLiteral("idle"));
-    setStatus(r.isEmpty() ? QStringLiteral("import failed — checksum or module error")
-                          : QStringLiteral("imported %1").arg(region));
+    const bool verified = r.isObject() && r.toObject().value(QStringLiteral("verified")).toBool();
+    // A failed module call is not a checksum mismatch; clear the result instead.
+    setLastVerification(!error.isEmpty() ? QString()
+                        : verified       ? QStringLiteral("verified")
+                                         : QStringLiteral("MISMATCH"));
+    setPhase(error.isEmpty() ? QStringLiteral("idle") : QStringLiteral("error"));
+    setStatus(error.isEmpty() ? QStringLiteral("imported %1").arg(region) : error);
     refresh();
 }
 
@@ -133,14 +151,16 @@ void OsmAppPlugin::downloadRegion(const QString& region, const QString& destDir)
     setWorking(true);
     setPhase(QStringLiteral("downloading"));
     setStatus(QStringLiteral("downloading %1…").arg(region));
-    const QJsonObject r = callModule("downloadRegion", {region, destDir});
+    QString error;
+    const QJsonValue r = callModule("downloadRegion", {region, destDir}, &error);
     setWorking(false);
-    setLastVerification(r.isEmpty() ? QStringLiteral("MISMATCH") : QStringLiteral("verified"));
-    setPhase(r.isEmpty() ? QStringLiteral("error") : QStringLiteral("idle"));
-    setStatus(r.isEmpty() ? QStringLiteral("download failed")
-                          : QStringLiteral("downloaded %1 (verified: %2)")
-                                .arg(region, r.contains(QStringLiteral("verified")) &&
-                                               r.value(QStringLiteral("verified")).toBool()
-                                           ? QStringLiteral("yes")
-                                           : QStringLiteral("no")));
+    const bool verified = r.isObject() && r.toObject().value(QStringLiteral("verified")).toBool();
+    // A failed module call is not a checksum mismatch; clear the result instead.
+    setLastVerification(!error.isEmpty() ? QString()
+                        : verified       ? QStringLiteral("verified")
+                                         : QStringLiteral("MISMATCH"));
+    setPhase(error.isEmpty() ? QStringLiteral("idle") : QStringLiteral("error"));
+    setStatus(error.isEmpty() ? QStringLiteral("downloaded %1 (verified: %2)")
+                                    .arg(region, verified ? QStringLiteral("yes") : QStringLiteral("no"))
+                              : error);
 }
