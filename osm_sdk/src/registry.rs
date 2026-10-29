@@ -105,9 +105,7 @@ pub fn query_by_cid<'a>(map: &'a BTreeMap<String, RegionEntry>, cid: &str) -> Ve
 }
 
 fn sort_entries(entries: &mut [&RegionEntry]) {
-    entries.sort_by(|a, b| {
-        (a.timestamp, a.region.as_str()).cmp(&(b.timestamp, b.region.as_str()))
-    });
+    entries.sort_by(|a, b| (a.timestamp, a.region.as_str()).cmp(&(b.timestamp, b.region.as_str())));
 }
 
 // ── SPEL CLI + lgs implementation ─────────────────────────────────────────
@@ -478,7 +476,10 @@ mod tests {
 
         let by_parent = query_by_parent(&map, "india");
         assert_eq!(
-            by_parent.iter().map(|e| e.region.as_str()).collect::<Vec<_>>(),
+            by_parent
+                .iter()
+                .map(|e| e.region.as_str())
+                .collect::<Vec<_>>(),
             vec!["india/east", "india/north", "india/west"]
         );
         let by_cid = query_by_cid(&map, "missing");
