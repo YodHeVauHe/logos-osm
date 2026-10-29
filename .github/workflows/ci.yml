@@ -59,9 +59,9 @@ jobs:
           echo "Program ID: $PID"
       - name: Generate IDL
         run: make idl
-      - name: IDL freshness (warning until the generated IDL is committed)
+      - name: IDL freshness
         run: |
-          git diff --exit-code idl/             || echo "::warning::IDL differs from the committed file — idl artifact holds the fresh copy"
+          git diff --exit-code -- idl/osm-registry.idl.json
       - uses: actions/upload-artifact@v4
         with:
           name: idl

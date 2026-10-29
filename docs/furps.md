@@ -111,7 +111,7 @@ No throughput or latency claims are made beyond the design properties above.
 | Item | Current state | What remains |
 |---|---|---|
 | Testnet 0.4 | Local-sequencer deployment is in CI | Deploy to the public zone and record the Program ID and registry PDA |
-| IDL | `make idl` generates it; CI uploads an artifact and warns on staleness | Commit `idl/osm-registry.idl.json` and make the check fail closed |
+| IDL | `make idl` generates the tracked artifact; CI fails if it is stale and uploads it for inspection | Keep regeneration deterministic as the guest interface changes |
 | Cycle counts | Guest instrumentation + CI capture are wired | Commit measured values in `docs/cycles.md` |
 | Module catalog | Fork/release procedure documented | Publish the catalog and record its `logos-repo.json` URL |
 | Adoption | No evidence claimed | 15 countries / 25 verified entries, 5 independent modules (3 Basecamp UI apps), macOS coverage |
