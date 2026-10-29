@@ -5,23 +5,18 @@
 #include <QJsonObject>
 
 #include "logos_api.h"
+#include "logos_api_client.h"
 
 OsmAppPlugin::OsmAppPlugin() = default;
 
 OsmAppPlugin::~OsmAppPlugin() = default;
 
-void OsmAppPlugin::initLogos(LogosAPI* api) {
-    m_api = api;
-    m_osmClient = new LogosAPIClient(QStringLiteral("osm"),
-                                     QStringLiteral("osm-app"),
-                                     m_api->getTokenManager(), this);
-    refresh();
-}
-
 QJsonObject OsmAppPlugin::callModule(const char* method, const QJsonArray& args) {
-    if (!m_osmClient) return {};
+    if (!logosAPI) return {};
+    LogosAPIClient* client = logosAPI->getClient(QStringLiteral("osm"));
+    if (!client) return {};
     // The osm module returns JSON strings; unwrap and parse.
-    const QVariant v = m_osmClient->invokeRemoteMethod(
+    const QVariant v = client->invokeRemoteMethod(
         QStringLiteral("osm"), QString::fromLatin1(method), args,
         Timeout(60 * 1000));
     if (v.canConvert<LogosResult>()) {

@@ -5,7 +5,8 @@
   "author": "LP-0018",
   "type": "ui_qml",
   "category": "ui",
-  "main": "osm_app_plugin",
+  "icon": "assets/icon.png",
+  "main": "osm-app_plugin",
   "view": "qml/Main.qml",
   "dependencies": ["osm"],
   "nix": {
