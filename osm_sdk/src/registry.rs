@@ -1,10 +1,7 @@
 //! On-chain OSM registry client.
 //!
-//! Reads are off-chain: the registry state lives in a single PDA account, so
-//! queries fetch the account bytes via `lgs wallet account get` and borsh-
-//! decode them locally, then filter by region / parent / CID. Writes go
-//! through the SPEL-generated instruction CLI (`osm_registry_cli`), which
-//! builds and submits transactions from the committed IDL.
+//! Registry transactions use the LEZ v0.3.1 wallet client. Reads fetch the
+//! public registry shard and decode its Borsh `Registry` bytes locally.
 
 use crate::error::SdkError;
 use async_trait::async_trait;
@@ -108,33 +105,28 @@ fn sort_entries(entries: &mut [&RegionEntry]) {
     entries.sort_by(|a, b| (a.timestamp, a.region.as_str()).cmp(&(b.timestamp, b.region.as_str())));
 }
 
-// ── SPEL CLI + lgs implementation ─────────────────────────────────────────
+// ── LEZ v0.3.1 wallet CLI implementation ──────────────────────────────────
 
-/// Talks to the chain by shelling out to the SPEL-generated
-/// `osm_registry_cli` (transactions) and `lgs wallet` (account reads) —
-/// the same boundaries the reference LP-0017 implementation uses.
-pub struct SpelCliRegistryClient {
+/// Talks to the chain through `osm_registry_cli`, which uses LEZ v0.3.1's
+/// WalletCore, RPC client, and public transaction builder.
+pub struct LezWalletRegistryClient {
     pub cli_bin: PathBuf,
-    pub idl_path: PathBuf,
     pub program_id: String,
-    pub lgs_bin: PathBuf,
+    pub rpc_url: String,
     pub wallet_home: PathBuf,
     pub signer_account_id: String,
 }
 
-impl SpelCliRegistryClient {
+/// Kept as a source compatibility name for clients that used the old type name.
+pub type SpelCliRegistryClient = LezWalletRegistryClient;
+
+impl LezWalletRegistryClient {
     fn cli_cmd(&self) -> tokio::process::Command {
         let mut c = tokio::process::Command::new(&self.cli_bin);
-        c.arg("-i")
-            .arg(&self.idl_path)
-            .arg("-p")
+        c.arg("--rpc-url")
+            .arg(&self.rpc_url)
+            .arg("--program-id")
             .arg(&self.program_id);
-        c.env("LEE_WALLET_HOME_DIR", &self.wallet_home);
-        c
-    }
-
-    fn lgs_cmd(&self) -> tokio::process::Command {
-        let mut c = tokio::process::Command::new(&self.lgs_bin);
         c.env("LEE_WALLET_HOME_DIR", &self.wallet_home);
         c
     }
@@ -153,72 +145,37 @@ impl SpelCliRegistryClient {
         ))
     }
 
-    /// Pull the `PDA registry -> <addr>` line out of `--dry-run=text` output.
-    pub(crate) fn parse_pda_line(text: &str) -> Option<String> {
-        for line in text.lines() {
-            let t = line.trim();
-            if let Some(rest) = t.strip_prefix("PDA registry") {
-                let rest = rest
-                    .trim()
-                    .trim_start_matches('\u{2192}')
-                    .trim_start_matches("->")
-                    .trim_start();
-                if let Some(addr) = rest.split_whitespace().next() {
-                    return Some(addr.to_string());
-                }
-            }
+    pub(crate) fn parse_raw_shard(text: &str) -> Result<Option<Vec<u8>>, SdkError> {
+        let text = text.trim();
+        if text.is_empty() || text == "null" {
+            return Ok(None);
         }
-        None
-    }
-
-    /// Parse `lgs wallet account get --raw` JSON: first `{` .. last `}`.
-    /// An uninitialized account prints no JSON → `Ok(None)`.
-    pub(crate) fn parse_account_get_json(stdout: &str) -> Result<Option<Vec<u8>>, SdkError> {
-        let (start, end) = match (stdout.find('{'), stdout.rfind('}')) {
-            (Some(s), Some(e)) if s <= e => (s, e),
-            _ => return Ok(None),
-        };
-        let v: serde_json::Value = serde_json::from_str(&stdout[start..=end])
-            .map_err(|e| SdkError::Other(anyhow::anyhow!("account get JSON: {e}")))?;
-        match v.get("data").and_then(|d| d.as_str()) {
-            Some(h) => {
-                let bytes = hex::decode(h)
-                    .map_err(|e| SdkError::Other(anyhow::anyhow!("account data hex: {e}")))?;
-                Ok(Some(bytes))
-            }
-            None => Ok(None),
-        }
+        hex::decode(text)
+            .map(Some)
+            .map_err(|e| SdkError::Other(anyhow::anyhow!("registry shard is not hex: {e}")))
     }
 }
 
 #[async_trait]
-impl RegistryClient for SpelCliRegistryClient {
+impl RegistryClient for LezWalletRegistryClient {
     async fn pda(&self) -> Result<String, SdkError> {
         let mut cmd = self.cli_cmd();
-        cmd.args([
-            "--dry-run=text",
-            "init-registry",
-            "--authority",
-            &self.signer_account_id,
-        ]);
+        cmd.arg("pda");
         let (stdout, stderr, ok) = Self::run(&mut cmd).await?;
         if !ok {
             return Err(SdkError::Other(anyhow::anyhow!(
-                "pda dry-run failed: {stdout}{stderr}"
+                "registry PDA query failed: {stdout}{stderr}"
             )));
         }
-        Self::parse_pda_line(&format!("{stdout}{stderr}")).ok_or_else(|| {
-            SdkError::Other(anyhow::anyhow!("no 'PDA registry' line in dry-run output"))
-        })
+        Ok(stdout.trim().to_owned())
     }
 
     async fn init_registry(&self) -> Result<(), SdkError> {
-        let pda = self.pda().await?;
-        if self.fetch_account_bytes(&pda).await?.is_some() {
+        if self.fetch_all().await?.is_some() {
             return Ok(());
         }
         let mut cmd = self.cli_cmd();
-        cmd.args(["init-registry", "--authority", &self.signer_account_id]);
+        cmd.args(["init", "--payer", &self.signer_account_id]);
         let (stdout, stderr, ok) = Self::run(&mut cmd).await?;
         if !ok {
             return Err(SdkError::Other(anyhow::anyhow!(
@@ -244,48 +201,33 @@ impl RegistryClient for SpelCliRegistryClient {
                 });
             }
         }
-        let by = hex::encode(registered_by);
+        if entries.len() > MAX_BATCH {
+            return Err(SdkError::BatchTooBig(entries.len()));
+        }
+        let mut entries = entries.to_vec();
+        for entry in &mut entries {
+            entry.registered_by = registered_by;
+        }
         let mut cmd = self.cli_cmd();
         if entries.len() == 1 {
-            let e = &entries[0];
+            let encoded = serde_json::to_string(&entries[0])
+                .map_err(|e| SdkError::Other(anyhow::anyhow!("entry JSON encode: {e}")))?;
             cmd.args([
-                "register-region",
-                "--region",
-                &e.region,
-                "--parent",
-                e.parent.as_deref().unwrap_or(""),
-                "--level",
-                &e.level.to_string(),
-                "--cid",
-                &e.cid,
-                "--source-url",
-                &e.source_url,
-                "--checksum",
-                &e.checksum,
-                "--version",
-                &e.version,
-                "--hosted",
-                if e.hosted { "true" } else { "false" },
-                "--timestamp",
-                &e.timestamp.to_string(),
-                "--registered-by",
-                &by,
-                "--authority",
+                "register",
+                "--payer",
                 &self.signer_account_id,
+                "--entry-json",
+                &encoded,
             ]);
         } else {
-            if entries.len() > MAX_BATCH {
-                return Err(SdkError::BatchTooBig(entries.len()));
-            }
-            let payload = batch_payload(entries)?;
+            let encoded = serde_json::to_string(&entries)
+                .map_err(|e| SdkError::Other(anyhow::anyhow!("batch JSON encode: {e}")))?;
             cmd.args([
-                "register-batch",
-                "--payload",
-                &payload,
-                "--registered-by",
-                &by,
-                "--authority",
+                "batch",
+                "--payer",
                 &self.signer_account_id,
+                "--entries-json",
+                &encoded,
             ]);
         }
         let (stdout, stderr, ok) = Self::run(&mut cmd).await?;
@@ -298,8 +240,7 @@ impl RegistryClient for SpelCliRegistryClient {
     }
 
     async fn fetch_all(&self) -> Result<Option<BTreeMap<String, RegionEntry>>, SdkError> {
-        let pda = self.pda().await?;
-        match self.fetch_account_bytes(&pda).await? {
+        match self.fetch_account_bytes().await? {
             None => Ok(None),
             Some(bytes) if bytes.is_empty() => Ok(None),
             Some(bytes) => {
@@ -311,22 +252,17 @@ impl RegistryClient for SpelCliRegistryClient {
     }
 }
 
-impl SpelCliRegistryClient {
-    async fn fetch_account_bytes(&self, pda: &str) -> Result<Option<Vec<u8>>, SdkError> {
-        let mut cmd = self.lgs_cmd();
-        cmd.args(["wallet", "--", "account", "get", "--account-id"])
-            .arg(format!("Public/{pda}"))
-            .arg("--raw");
+impl LezWalletRegistryClient {
+    async fn fetch_account_bytes(&self) -> Result<Option<Vec<u8>>, SdkError> {
+        let mut cmd = self.cli_cmd();
+        cmd.args(["get", "--raw"]);
         let (stdout, stderr, ok) = Self::run(&mut cmd).await?;
-        if !ok && (stdout.contains("not found") || stderr.contains("not found")) {
-            return Ok(None);
-        }
         if !ok {
             return Err(SdkError::Other(anyhow::anyhow!(
-                "lgs account get failed: {stdout}{stderr}"
+                "registry shard query failed: {stdout}{stderr}"
             )));
         }
-        Self::parse_account_get_json(&stdout)
+        Self::parse_raw_shard(&stdout)
     }
 }
 
@@ -521,37 +457,15 @@ mod tests {
     }
 
     #[test]
-    fn parse_pda_line_variants() {
+    fn parse_v03_shard_response() {
         assert_eq!(
-            SpelCliRegistryClient::parse_pda_line(
-                "PDA registry \u{2192} HvCtoPL6RvYmqg8m7qkRqu4e2b1dHt4XsU2dz8eixdwe"
-            ),
-            Some("HvCtoPL6RvYmqg8m7qkRqu4e2b1dHt4XsU2dz8eixdwe".into())
+            LezWalletRegistryClient::parse_raw_shard("null\n").unwrap(),
+            None
         );
         assert_eq!(
-            SpelCliRegistryClient::parse_pda_line(
-                "PDA registry -> SomeAddr22222222222222222222222222222"
-            ),
-            Some("SomeAddr22222222222222222222222222222".into())
-        );
-        assert_eq!(SpelCliRegistryClient::parse_pda_line("nothing here"), None);
-    }
-
-    #[test]
-    fn parse_account_get_json_variants() {
-        assert!(
-            SpelCliRegistryClient::parse_account_get_json("Account is Uninitialized")
-                .unwrap()
-                .is_none()
-        );
-        let j = r#"$ lgs wallet account get
-{
-  "data": "010203",
-  "owner": "abc"
-}"#;
-        assert_eq!(
-            SpelCliRegistryClient::parse_account_get_json(j).unwrap(),
+            LezWalletRegistryClient::parse_raw_shard("010203\n").unwrap(),
             Some(vec![1, 2, 3])
         );
+        assert!(LezWalletRegistryClient::parse_raw_shard("not hex").is_err());
     }
 }

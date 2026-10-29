@@ -1,6 +1,6 @@
 //! End-to-end integration test: host (fetch → store → register) → query →
-//! download, against a real sequencer when one is running (`LGS_LOCALNET=1`
-//! — CI starts `lgs localnet`, deploys the program and runs this), or fully
+//! download, against a real sequencer when one is running (`LEZ_LOCALNET=1`
+//! — CI starts the LEZ v0.3.1 standalone sequencer and wallet), or fully
 //! in-memory otherwise.
 //!
 //! Geofabrik is simulated with a wiremock server carrying a deterministic
@@ -10,7 +10,7 @@
 
 #![cfg(all(test, feature = "e2e"))]
 
-use osm_sdk::registry::{MockRegistryClient, SpelCliRegistryClient};
+use osm_sdk::registry::{LezWalletRegistryClient, MockRegistryClient};
 use osm_sdk::storage::{InMemoryStorage, LogoscoreStorage};
 use osm_sdk::{HostOpts, OsmSdk};
 use std::path::PathBuf;
@@ -111,14 +111,14 @@ fn required_env(name: &str) -> String {
     std::env::var(name)
         .ok()
         .filter(|v| !v.is_empty())
-        .unwrap_or_else(|| panic!("LGS_LOCALNET=1 requires {name}"))
+        .unwrap_or_else(|| panic!("LEZ_LOCALNET=1 requires {name}"))
 }
 
 fn required_file(name: &str) -> PathBuf {
     let path = PathBuf::from(required_env(name));
     assert!(
         path.is_file(),
-        "LGS_LOCALNET=1 requires {name} to be a file: {}",
+        "LEZ_LOCALNET=1 requires {name} to be a file: {}",
         path.display()
     );
     path
@@ -128,18 +128,17 @@ fn required_dir(name: &str) -> PathBuf {
     let path = PathBuf::from(required_env(name));
     assert!(
         path.is_dir(),
-        "LGS_LOCALNET=1 requires {name} to be a directory: {}",
+        "LEZ_LOCALNET=1 requires {name} to be a directory: {}",
         path.display()
     );
     path
 }
 
-fn localnet_registry() -> SpelCliRegistryClient {
-    SpelCliRegistryClient {
+fn localnet_registry() -> LezWalletRegistryClient {
+    LezWalletRegistryClient {
         cli_bin: required_file("OSM_CLI_BIN"),
-        idl_path: required_file("OSM_IDL_PATH"),
         program_id: required_env("OSM_PROGRAM_ID"),
-        lgs_bin: PathBuf::from(std::env::var("LGS_BIN").unwrap_or_else(|_| "lgs".into())),
+        rpc_url: required_env("OSM_RPC_URL"),
         wallet_home: required_dir("LEE_WALLET_HOME_DIR"),
         signer_account_id: required_env("OSM_SIGNER_ACCOUNT_ID"),
     }
@@ -150,7 +149,7 @@ fn localnet_registry() -> SpelCliRegistryClient {
 /// registry contract from the separately provisioned Logos Storage daemon.
 #[tokio::test]
 async fn localnet_registry_host_query() {
-    if std::env::var("LGS_LOCALNET").as_deref() != Ok("1") {
+    if std::env::var("LEZ_LOCALNET").as_deref() != Ok("1") {
         return;
     }
 
@@ -201,10 +200,10 @@ async fn localnet_registry_host_query() {
 }
 
 /// Real chain/storage roundtrip. The regular Rust matrix leaves this dormant;
-/// setting LGS_LOCALNET=1 switches this test to production backends only.
+/// setting LEZ_LOCALNET=1 switches this test to production backends only.
 #[tokio::test]
 async fn localnet_host_query_download() {
-    if std::env::var("LGS_LOCALNET").as_deref() != Ok("1") {
+    if std::env::var("LEZ_LOCALNET").as_deref() != Ok("1") {
         return;
     }
 

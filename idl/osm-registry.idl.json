@@ -1,147 +1,121 @@
 {
-  "accounts": [],
-  "errors": [],
+  "accounts": [
+    {
+      "address": "AccountId::for_public_pda(program_account_id, PdaSeed([\"registry\", 0x00 x 24]))",
+      "kind": "public shard; writable",
+      "name": "registry",
+      "owner": "deployed registry program account",
+      "signer": false
+    }
+  ],
+  "encoding": "borsh",
+  "errors": [
+    {
+      "code": 1,
+      "name": "E_REGION_EMPTY"
+    },
+    {
+      "code": 2,
+      "name": "E_BAD_LEVEL"
+    },
+    {
+      "code": 3,
+      "name": "E_BAD_CHECKSUM"
+    },
+    {
+      "code": 4,
+      "name": "E_BAD_TIMESTAMP"
+    },
+    {
+      "code": 5,
+      "name": "E_BAD_VERSION"
+    },
+    {
+      "code": 6,
+      "name": "E_REGISTRY_FULL"
+    },
+    {
+      "code": 7,
+      "name": "E_DESERIALIZE"
+    },
+    {
+      "code": 8,
+      "name": "E_BATCH_TOO_BIG"
+    },
+    {
+      "code": 9,
+      "name": "E_BAD_PARENT"
+    },
+    {
+      "code": 10,
+      "name": "E_BAD_REGION_ID"
+    },
+    {
+      "code": 11,
+      "name": "E_BAD_CID"
+    },
+    {
+      "code": 12,
+      "name": "E_BAD_SOURCE_URL"
+    }
+  ],
+  "instruction_enum_discriminants": {
+    "init_registry": 0,
+    "register_batch": 2,
+    "register_region": 1
+  },
   "instructions": [
     {
       "accounts": [
-        {
-          "init": true,
-          "name": "registry",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": "registry"
-              }
-            ]
-          },
-          "signer": false,
-          "writable": true
-        },
-        {
-          "init": false,
-          "name": "authority",
-          "signer": true,
-          "writable": false
-        }
+        "registry"
       ],
       "args": [],
-      "name": "init_registry"
+      "idempotent": true,
+      "name": "init_registry",
+      "permissionless": true
     },
     {
       "accounts": [
-        {
-          "init": false,
-          "name": "registry",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": "registry"
-              }
-            ]
-          },
-          "signer": false,
-          "writable": true
-        },
-        {
-          "init": false,
-          "name": "authority",
-          "signer": true,
-          "writable": false
-        }
+        "registry"
       ],
       "args": [
-        {
-          "name": "region",
-          "type": "string"
-        },
-        {
-          "name": "parent",
-          "type": "string"
-        },
-        {
-          "name": "level",
-          "type": "u8"
-        },
-        {
-          "name": "cid",
-          "type": "string"
-        },
-        {
-          "name": "source_url",
-          "type": "string"
-        },
-        {
-          "name": "checksum",
-          "type": "string"
-        },
-        {
-          "name": "version",
-          "type": "string"
-        },
-        {
-          "name": "hosted",
-          "type": "bool"
-        },
-        {
-          "name": "timestamp",
-          "type": "i64"
-        },
-        {
-          "name": "registered_by",
-          "type": {
-            "array": [
-              "u8",
-              32
-            ]
-          }
-        }
+        "RegionEntry"
       ],
       "name": "register_region"
     },
     {
       "accounts": [
-        {
-          "init": false,
-          "name": "registry",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": "registry"
-              }
-            ]
-          },
-          "signer": false,
-          "writable": true
-        },
-        {
-          "init": false,
-          "name": "authority",
-          "signer": true,
-          "writable": false
-        }
+        "registry"
       ],
       "args": [
         {
-          "name": "payload",
-          "type": "string"
-        },
-        {
-          "name": "registered_by",
-          "type": {
-            "array": [
-              "u8",
-              32
-            ]
-          }
+          "entries": "Vec<RegionEntry>"
         }
       ],
+      "max_entries": 72,
       "name": "register_batch"
     }
   ],
   "name": "osm_registry",
-  "types": [],
-  "version": "0.1.0"
+  "read": "fetch the registry account and decode account.data.shard(program_account_id) as osm_registry_core::Registry",
+  "runtime": "LEZ plan/apply",
+  "types": [
+    {
+      "fields": {
+        "checksum": "string",
+        "cid": "string",
+        "hosted": "bool",
+        "level": "u8",
+        "parent": "option<string>",
+        "record_version": "u8",
+        "region": "string",
+        "registered_by": "[u8; 32]",
+        "source_url": "string",
+        "timestamp": "i64",
+        "version": "string"
+      },
+      "name": "RegionEntry"
+    }
+  ],
+  "version": "0.3.1"
 }

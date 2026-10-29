@@ -4,7 +4,7 @@
 //! check-updates, download. All heavy lifting lives in the SDK.
 
 use clap::{Parser, Subcommand};
-use osm_sdk::registry::{MockRegistryClient, RegistryClient, SpelCliRegistryClient};
+use osm_sdk::registry::{LezWalletRegistryClient, MockRegistryClient, RegistryClient};
 use osm_sdk::storage::{InMemoryStorage, LogoscoreStorage, StorageBackend};
 use osm_sdk::{HostOpts, OsmSdk, SdkError};
 use std::path::PathBuf;
@@ -28,6 +28,10 @@ struct Cli {
     /// lgs signer account id (e.g. an account from `lgs wallet`).
     #[arg(long, global = true, env = "OSM_SIGNER")]
     signer: Option<String>,
+
+    /// LEZ v0.3.1 sequencer RPC URL.
+    #[arg(long, global = true, env = "OSM_RPC_URL")]
+    rpc_url: Option<String>,
 
     /// Use the in-memory storage double (dev/testing — no logoscore).
     #[arg(long, global = true)]
@@ -100,9 +104,8 @@ enum Cmd {
 #[derive(Debug, serde::Deserialize, Default)]
 struct Config {
     program_id: Option<String>,
-    idl_path: Option<PathBuf>,
     cli_bin: Option<PathBuf>,
-    lgs_bin: Option<PathBuf>,
+    rpc_url: Option<String>,
     wallet_home: Option<PathBuf>,
     signer_account_id: Option<String>,
     logoscore_bin: Option<PathBuf>,
@@ -205,17 +208,20 @@ async fn run(cli: Cli) -> i32 {
     let registry: Box<dyn RegistryClient> = if cli.storage_memory {
         Box::new(MockRegistryClient::new())
     } else {
-        Box::new(SpelCliRegistryClient {
+        Box::new(LezWalletRegistryClient {
             cli_bin: cfg
                 .cli_bin
                 .clone()
                 .unwrap_or_else(|| PathBuf::from("./target/debug/osm_registry_cli")),
-            idl_path: cfg
-                .idl_path
-                .clone()
-                .unwrap_or_else(|| PathBuf::from("./idl/osm-registry.idl.json")),
             program_id: program_id.clone(),
-            lgs_bin: cfg.lgs_bin.clone().unwrap_or_else(|| PathBuf::from("lgs")),
+            rpc_url: cli
+                .rpc_url
+                .clone()
+                .or_else(|| cfg.rpc_url.clone())
+                .unwrap_or_else(|| {
+                    std::env::var("OSM_RPC_URL")
+                        .unwrap_or_else(|_| "https://testnet.lez.logos.co".into())
+                }),
             wallet_home: cfg.wallet_home.clone().unwrap_or_else(|| {
                 std::env::var("LEE_WALLET_HOME_DIR")
                     .map(PathBuf::from)

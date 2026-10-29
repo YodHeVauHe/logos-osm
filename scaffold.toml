@@ -1,16 +1,9 @@
-[build]
-guest = "docker"
-
 [scaffold]
 version = "0.2.0"
 
 [repos.lez]
 source = "https://github.com/logos-blockchain/logos-execution-zone.git"
-pin = "27360cb7d6ccb2bfbcca7d171bab8a3938490264"
-
-[repos.spel]
-source = "https://github.com/logos-co/spel.git"
-pin = "73fc462eb8f0a4d00f1a846437c627ec2e523f83"
+pin = "v0.3.1"
 
 [wallet]
 home_dir = ".scaffold/wallet"

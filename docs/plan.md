@@ -2,11 +2,13 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build the LP-0018 deliverable — an on-chain OSM registry (LEZ/SPEL), an OSM registry SDK/module, a CLI, and an OSM distribution Basecamp app — implementing the full fetch → store → register → download pipeline for Geofabrik PBF snapshots on Logos testnet 0.4.
+**Goal:** Build the LP-0018 deliverable — an on-chain OSM registry, an OSM registry SDK/module, a CLI, and an OSM distribution Basecamp app — implementing the full fetch → store → register → download pipeline for Geofabrik PBF snapshots on Logos testnet 0.4.
 
-**Architecture:** Monorepo in the style of the winning LP-0017 solution (`aegonmyy/logoz`): a RISC0 guest program written with SPEL macros holds registry state in a single PDA account (borsh `HashMap<String, RegionEntry>`); a Rust SDK crate (`osm_sdk`) implements region discovery, Geofabrik index/checksum/version resolution, storage backends, and registry clients; the CLI, the FFI bridge, the C++ Basecamp module, and the QML Basecamp app all consume the SDK. Registry queries are off-chain account reads (borsh decode + filter); only writes are transactions.
+**Architecture:** Monorepo with a RISC Zero guest program directly using LEZ v0.3.1 plan/apply APIs. The registry is stored as Borsh `Registry` bytes in a program-owned public PDA shard; host SDK and CLI query the v0.3 sequencer and submit public wallet transactions.
 
-**Tech Stack:** Rust (guest + host: borsh, tokio, reqwest/rustls, clap, md-5, thiserror, wiremock for tests), SPEL framework (`#[lez_program]`/`#[instruction]`, git-pinned), `lee_core` (git-pinned rev), RISC0 toolchain via Docker (CI), `lgs` (logos-scaffold) for localnet/wallet/deploy/basecamp, Nix + `logos-module-builder` (`mkLogosModule`/`mkLogosQmlModule`) for the C++ module and QML app, `logoscore` headless binary for storage from CLI, Qt Remote Objects (`LogosAPIClient` → `storage_module`) inside Basecamp.
+**Tech Stack:** Rust, `lee_core` from LEZ tag `v0.3.1`, RISC Zero 3.0.5, rzup `embed_methods` guest build, v0.3.1 wallet/RPC client, Nix + `logos-module-builder`, `logoscore` storage CLI, Qt Remote Objects.
+
+> Port update (2026-10-29): legacy SPEL and rev `27360cb` task details below are historical planning notes. The active v0.3.1 port design and implementation plan are in [`docs/superpowers/specs/2026-10-29-lez-v0.3-port-design.md`](superpowers/specs/2026-10-29-lez-v0.3-port-design.md) and [`docs/superpowers/plans/2026-10-29-lez-v0.3-port.md`](superpowers/plans/2026-10-29-lez-v0.3-port.md).
 
 **Spec:** `../LP-0018.md` (copy of the prize spec, committed at repo root for reference; authoritative sections: Success Criteria, Scope, Adoption, Predefined Regions).
 

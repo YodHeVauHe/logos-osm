@@ -4,7 +4,7 @@
 
 [![CI workflow badge](https://github.com/YodHeVauHe/logos-osm/actions/workflows/ci.yml/badge.svg)](https://github.com/YodHeVauHe/logos-osm/actions/workflows/ci.yml) · **Branch evidence:** local Rust and IDL checks pass; GitHub Actions has not run for this branch. Testnet deployment, catalog publication, and adoption evidence are pending owner actions.
 
-`logos-osm` provides a registry and tools for distributing Geofabrik OpenStreetMap PBF snapshots through Logos. It includes a SPEL/LEZ registry, Rust SDK, CLI, C FFI, Basecamp core module, and QML app. The repository implements the workflows; public deployment, catalog release, and ecosystem adoption are not yet evidenced.
+`logos-osm` provides a registry and tools for distributing Geofabrik OpenStreetMap PBF snapshots through Logos. The registry guest targets LEZ v0.3.1's plan/apply API and stores its Borsh registry in a public PDA shard owned by the deployed program account. The repository also includes a Rust SDK, CLI, C FFI, Basecamp core module, and QML app. No testnet deployment, catalog release, or ecosystem adoption is claimed.
 
 ## Contents
 
@@ -37,7 +37,7 @@ Geofabrik supplies the snapshot index, published MD5 values, and fallback downlo
 
 | Component | Role |
 |---|---|
-| SPEL LEZ program (`methods/guest`) | Initializes the registry and registers one or multiple region entries. |
+| LEZ v0.3.1 guest (`methods/guest`) | Plans registry shard effects and applies initialization, one-entry upserts, and batches. |
 | `osm_registry_core` | Shared registry types, validation, and error codes. |
 | `osm_sdk` | Discovery, verification, storage and registry abstractions, hosting, import, queries, downloads, and update checks. |
 | `osm_cli` | `osm` command line interface. |
@@ -48,31 +48,28 @@ Geofabrik supplies the snapshot index, published MD5 values, and fallback downlo
 
 ## Prerequisites
 
-- Rust stable and Cargo for the workspace, SDK, CLI, FFI, and IDL generator.
+- Rust 1.98.1 and Cargo for host workspace and CLI builds.
 - Nix with flakes enabled for Basecamp module and app packages.
-- `cargo-risczero`, the RISC Zero toolchain, Docker, SPEL, and `lgs` for guest build and localnet deployment (`make build`, `make deploy`).
+- RISC Zero `rzup` Rust 1.97.0 / C++ 2024.1.5 toolchains for `make build`; Docker is not used by this build. The build is toolchain pinned but not Docker deterministic, and host dependency resolution may change without lockfiles.
+- A LEZ v0.3.1 `wallet` binary and wallet home for deployment and transactions; the SDK CLI uses `LEE_WALLET_HOME_DIR` and `OSM_RPC_URL`.
 - `logoscore` and a built `storage_module` for production Storage operations. The in-memory mode is for development and tests.
 
 ## Build and test
 
-Commands verified from this branch:
+Host commands verified on this branch:
 
 ```sh
-cargo build --workspace
-cargo test --workspace
-make idl
-nix flake show
-cargo run -p osm_cli --bin osm -- --help
+RUSTUP_TOOLCHAIN=1.98.1 cargo test --workspace
+RUSTUP_TOOLCHAIN=1.98.1 make idl
+RUSTUP_TOOLCHAIN=1.98.1 make build
+RUSTUP_TOOLCHAIN=1.98.1 cargo test -p osm_e2e --features e2e
 ```
 
-`make idl` regenerates the tracked `idl/osm-registry.idl.json`. `nix flake show` lists Basecamp package outputs, including `osm-install`, `osm-app-install`, and `osm-consumer-example`. Nix evaluation reports a deprecation warning for the QML app backend. The three Basecamp packages below were built successfully on x86_64 Linux for this branch:
+`make build` uses `risc0-build::embed_methods` with the installed rzup toolchains, wraps the ELF in the ProgramBinary format required by v0.3.1 `wallet program-loader`, and prints the image ID. `make idl` regenerates the tracked `idl/osm-registry.idl.json`.
 
-```sh
-nix build .#osm-install .#osm-app-install
-nix build .#osm-consumer-example
-```
+Nix builds are not claimed here; run the package builds if Nix is installed.
 
-Run the in-memory end-to-end suite with `cargo test -p osm_e2e --features e2e`. The real localnet registry test and the full real Storage roundtrip require configured Logos services; the latter is not yet verified because the `LogoscoreStorage` adapter targets the legacy `uploadFile`/`downloadFile`/`nameObject` API and the current Storage module exposes `uploadUrl`/`downloadToUrl`.
+Run the e2e suite with `RUSTUP_TOOLCHAIN=1.98.1 cargo test -p osm_e2e --features e2e`. `localnet_registry_host_query` uses a real sequencer only when `LEZ_LOCALNET=1` and the LEZ v0.3.1 registry CLI, deployed program account, wallet home, and fee payer are configured. The real Storage roundtrip remains unverified because the `LogoscoreStorage` adapter targets the legacy `uploadFile`/`downloadFile`/`nameObject` API and the current Storage module exposes `uploadUrl`/`downloadToUrl`.
 
 ## Usage
 
@@ -88,7 +85,7 @@ Build the CLI with `cargo build -p osm_cli --bin osm`; run it as `./target/debug
 ./target/debug/osm host germany --program-id <PROGRAM_ID> --signer <ACCOUNT_ID>
 ```
 
-`discover` lists the frozen set without a registry connection. Registry and hosting commands need a configured program ID and signer; hosting also needs a working Logos Storage setup. See [`docs/sdk.md`](docs/sdk.md) for SDK configuration and API details. `--storage-memory` selects test doubles and is not a publishing mode.
+`discover` lists the frozen set without a registry connection. Registry and hosting commands need the deployed program header account ID, a configured wallet home and fee payer, and (optionally) `OSM_RPC_URL`; hosting also needs a working Logos Storage setup. The instruction CLI accepts `--rpc-url`, `--program-id`, `--payer`, JSON Borsh values, and has `get` / `pda` commands. See [`docs/sdk.md`](docs/sdk.md) for SDK configuration and API details. `--storage-memory` selects test doubles and is not a publishing mode.
 
 ### Basecamp app
 
@@ -96,9 +93,13 @@ Build the FFI library with `make ffi`, then build the app package with `nix buil
 
 ## Program IDs
 
-**Logos testnet 0.4:** pending owner deployment. No testnet Program ID or registry PDA is recorded.
+**Guest image ID (local build):** `c06bd5aab872896a7da067e7694e3a3ddda862fb442ce0552b9b50101ad4b65f`. This image ID is not the deployed program header account ID.
 
-**Localnet measurement only:** `8fd44f40975a635ba9c4a2fb8f91118c0cfcc060831e1a964d8d1583abadbad4`. This is the guest Program ID associated with the measured localnet samples in [`docs/cycles.md`](docs/cycles.md); it is not evidence of testnet deployment.
+**Logos testnet 0.4:** pending operator deployment. No deployment to testnet v0.3 or v0.4 has occurred.
+
+### Testnet v0.3 practice deployment (not the 0.4 deployment LP-0018 requires)
+
+Placeholder for the operator's practice deployment against testnet v0.3 after this port is reviewed. No testnet v0.3 deployment or registry initialization is claimed here.
 
 ## Regions
 
@@ -110,15 +111,15 @@ Status is based on repository artifacts and commands run locally. A checked impl
 
 | Requirement | Status | Evidence |
 |---|---|---|
-| SPEL registry with required fields and batch registration | Implemented; Rust workspace tests pass | [`methods/guest`](methods/guest), [`osm_registry_core`](osm_registry_core); `cargo test --workspace` |
+| LEZ v0.3.1 plan/apply registry with required fields and batch registration | Guest host tests, workspace tests, and local sequencer e2e pass | [`methods/guest`](methods/guest), [`osm_registry_core`](osm_registry_core) |
 | Frozen region discovery, checksums, hosting/import, queries and updates | Implemented; Rust workspace tests pass | [`regions.json`](regions.json), [`osm_sdk`](osm_sdk), [`osm_cli`](osm_cli) |
 | CLI and consumer SDK | Implemented; CLI help and workspace build verified | [`osm_cli`](osm_cli), [`docs/sdk.md`](docs/sdk.md) |
 | Basecamp core module, app, and independent consumer example | Source and flake outputs present; Nix build/runtime not verified here | [`osm-module`](osm-module), [`osm-app`](osm-app), [`examples/basecamp-consumer`](examples/basecamp-consumer), [`flake.nix`](flake.nix) |
-| SPEL IDL generated and tracked | `make idl` passes locally; CI result pending | [`idl/osm-registry.idl.json`](idl/osm-registry.idl.json) |
+| LEZ v0.3.1 instruction/account IDL generated and tracked | `make idl` regenerates the Borsh plan/apply contract; CI result pending | [`idl/osm-registry.idl.json`](idl/osm-registry.idl.json) |
 | In-memory e2e | Test is available; workspace tests pass. Dedicated feature-gated e2e command not run in this docs pass | [`tests/e2e`](tests/e2e) |
-| Real sequencer e2e and cycle capture | Configured in workflow; GitHub Actions has not run on this branch. Localnet measurements are documented | [CI workflow](.github/workflows/ci.yml), [`docs/cycles.md`](docs/cycles.md) |
+| Real LEZ v0.3.1 sequencer e2e and cycle capture | Local run passes; cycle sample recorded | [CI workflow](.github/workflows/ci.yml), [`docs/cycles.md`](docs/cycles.md) |
 | Logos Storage host-query-download roundtrip | Pending adapter compatibility work and verification | [`osm_sdk/src/storage.rs`](osm_sdk/src/storage.rs), current API note above |
-| Logos testnet 0.4 deployment | Pending | No deployed Program ID or registry PDA recorded |
+| Logos testnet 0.4 deployment | Pending operator action | No deployed program header account ID or registry PDA recorded |
 | Module catalog publication | Pending | Procedure in [`docs/catalog.md`](docs/catalog.md); no catalog URL recorded |
 | Adoption and coverage evidence | Pending | Owner checklist below; no public consumer or hosted coverage evidence recorded |
 
@@ -130,7 +131,7 @@ The criterion-by-criterion assessment is in [`docs/furps.md`](docs/furps.md). It
 
 - The complete real Storage roundtrip is unverified until `LogoscoreStorage` is aligned with the current Storage module API.
 - GitHub Actions has not run for this branch. Nix flake evaluation succeeds, but package builds and interactive Basecamp use are unverified here.
-- The testnet 0.4 deployment and registry initialization remain pending.
+- The testnet v0.3 practice deployment and required testnet 0.4 deployment and registry initialization remain pending.
 - Real Geofabrik snapshots hosted in Logos Storage, at least 15 covered countries and 25 verified entries, catalog releases, and five independent consumers (including three Basecamp UI apps) require owner evidence.
 - A solution PR to `logos-co/lambda-prize` with the FURPS assessment and adoption evidence remains to be opened.
 
