@@ -1,7 +1,9 @@
 use borsh::{BorshDeserialize, BorshSerialize};
+#[cfg(test)]
+use lee_core::program::AccountMeta;
 use lee_core::{
     account::{AccountId, ShardData},
-    program::{run_program, AccountMeta, PdaSeed, Plan, PlanInput},
+    program::{run_program, PdaSeed, Plan, PlanInput},
 };
 use osm_registry_core::{
     validate_entry, RegionEntry, Registry, E_BAD_TIMESTAMP, E_BATCH_TOO_BIG, E_DESERIALIZE,
@@ -32,6 +34,7 @@ fn registry_account_id(program: AccountId) -> AccountId {
     AccountId::for_public_pda(&program, &PdaSeed::new(seed))
 }
 
+#[cfg(test)]
 fn registry_meta(program: AccountId) -> AccountMeta {
     AccountMeta::new(registry_account_id(program), false, program)
 }
@@ -186,6 +189,73 @@ mod tests {
                 &ShardData::try_from(existing.clone()).unwrap()
             ),
             None
+        );
+    }
+
+    #[test]
+    fn register_batch_applies_all_entries_atomically() {
+        let program = AccountId::new([3; 32]);
+        let entries = vec![good_entry("germany"), good_entry("france")];
+        let input = PlanInput {
+            self_account_id: program,
+            caller_account_id: None,
+            accounts: vec![registry_meta(program)],
+            instruction_data: Vec::new(),
+        };
+        let plan = plan(
+            &input,
+            Instruction::RegisterBatch {
+                entries: entries.clone(),
+            },
+        );
+        let effect = borsh::from_slice::<Effect>(&plan.output().effects[0].data).unwrap();
+        let next = apply(effect, &ShardData::empty()).unwrap();
+        let registry = Registry::try_from_slice(&next).unwrap();
+        assert_eq!(registry.entries.len(), 2);
+        assert_eq!(registry.entries["germany"], entries[0]);
+        assert_eq!(registry.entries["france"], entries[1]);
+    }
+
+    #[test]
+    fn plan_rejects_wrong_registry_pda() {
+        let program = AccountId::new([3; 32]);
+        let mut meta = registry_meta(program);
+        meta.account_id = AccountId::new([9; 32]);
+        let input = PlanInput {
+            self_account_id: program,
+            caller_account_id: None,
+            accounts: vec![meta],
+            instruction_data: Vec::new(),
+        };
+        assert_eq!(
+            validate_instruction(&input, &Instruction::InitRegistry),
+            Err(E_DESERIALIZE)
+        );
+    }
+
+    #[test]
+    fn apply_rejects_registry_growth_over_account_ceiling() {
+        let mut state = Registry::default();
+        let mut old = good_entry("old");
+        old.cid = "x".repeat(102_100);
+        state.entries.insert(old.region.clone(), old);
+        let bytes = borsh::to_vec(&state).unwrap();
+        assert!(bytes.len() <= MAX_ACCOUNT_BYTES);
+        let pre_data = ShardData::try_from(bytes).unwrap();
+        let result = std::panic::catch_unwind(|| {
+            apply(Effect::RegisterRegion(good_entry("germany")), &pre_data)
+        });
+        let panic = result
+            .err()
+            .unwrap_or_else(|| panic!("registry growth must be rejected"));
+        let message = panic
+            .downcast_ref::<String>()
+            .map(String::as_str)
+            .or_else(|| panic.downcast_ref::<&str>().copied())
+            .unwrap_or_default();
+        assert!(
+            message.contains(&format!("E_{E_REGISTRY_FULL}")),
+            "{message}"
         );
     }
 

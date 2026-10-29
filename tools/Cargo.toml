@@ -10,6 +10,11 @@ license = "MIT OR Apache-2.0"
 name = "mk-program-binary"
 path = "src/mk_program_binary.rs"
 
+[[bin]]
+name = "generate_idl"
+path = "src/generate_idl.rs"
+
 [dependencies]
 risc0-binfmt = "=3.0.4"
 risc0-zkos-v1compat = "=2.2.2"
+serde_json = "1"

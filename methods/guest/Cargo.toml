@@ -15,7 +15,3 @@ lee_core            = { git = "https://github.com/logos-blockchain/logos-executi
 risc0-zkvm          = { version = "=3.0.5", features = ["std"] }
 osm_registry_core   = { path = "../../osm_registry_core" }
 borsh               = { version = "1", features = ["derive"] }
-serde               = { version = "1", features = ["derive"] }
-ruint               = "=1.17.0"
-enum-ordinalize        = "=4.3.2"
-enum-ordinalize-derive = "=4.3.2"

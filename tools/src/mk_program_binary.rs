@@ -1,8 +1,8 @@
-//! Wrap a RISC0 user ELF into the risc0 ProgramBinary format that
-//! spel/lgs consume, and print the derived program ID.
-use std::{env, fs, path::PathBuf};
+//! Wrap a RISC0 user ELF into the LEZ v0.3.1 program-loader format and print
+//! the derived image ID.
 use risc0_binfmt::ProgramBinary;
 use risc0_zkos_v1compat::V1COMPAT_ELF;
+use std::{env, fs, path::PathBuf};
 
 fn main() {
     let args: Vec<String> = env::args().collect();
