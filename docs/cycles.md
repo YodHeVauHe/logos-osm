@@ -9,7 +9,10 @@ passing `localnet_registry_host_query` run against the real sequencer. The
 guest source is commit `29779bd052031ff60a56c1e356a9e038f4b3b1bb`, producing
 Program ID
 `8fd44f40975a635ba9c4a2fb8f91118c0cfcc060831e1a964d8d1583abadbad4`.
-The SDK/e2e harness at the first measured run was commit `1d60991209ec3343c8debd799b13a38cf56408d0`.
+The first measured run used the Task 4 SDK/e2e changes later committed as
+`1c1ad662f16dcfe09a8cd13d7e901adf2802ba5f` (the worktree base was
+`1d60991209ec3343c8debd799b13a38cf56408d0`). The second sample was captured
+after the Task 4 commit. The guest program remained the same Program ID.
 
 | Operation | Input | Guest cycles |
 |---|---:|---:|
