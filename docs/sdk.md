@@ -33,7 +33,7 @@ URL/checksum resolution maps through the combined extract.
 The integration path most Basecamp consumers take:
 
 ```rust
-use osm_sdk::registry::{MockRegistryClient, RegistryClient}; // or SpelCliRegistryClient
+use osm_sdk::registry::{LezWalletRegistryClient, MockRegistryClient, RegistryClient};
 use osm_sdk::storage::InMemoryStorage;                      // or LogoscoreStorage
 use osm_sdk::OsmSdk;
 
@@ -41,7 +41,13 @@ use osm_sdk::OsmSdk;
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let sdk = OsmSdk::new(
         Box::new(InMemoryStorage::new()),     // downloads don't need storage
-        Box::new(SpelCliRegistryClient { /* program id, idl, lgs paths */ }),
+        Box::new(LezWalletRegistryClient {
+            cli_bin: "./examples/target/debug/osm_registry_cli".into(),
+            program_id: "<deployed-v0.3.1-program-account-id>".into(),
+            rpc_url: "http://127.0.0.1:3040".into(),
+            wallet_home: "/tmp/lez-wallet".into(),
+            signer_account_id: "<fee-payer-account-id>".into(),
+        }),
     );
 
     // 1. Is `us/california` registered? What are its CID and version?
@@ -124,10 +130,12 @@ for u in sdk.check_updates().await? {
 | Concern | Production | Tests / dev |
 |---|---|---|
 | Storage | `LogoscoreStorage` (drives the headless `logoscore` binary with `storage_module`) | `InMemoryStorage` |
-| Registry client | `SpelCliRegistryClient` (SPEL-generated `osm_registry_cli` for txs, `lgs wallet` for account reads) | `MockRegistryClient` (feature `test-util`) |
+| Registry client | `LezWalletRegistryClient` (LEZ v0.3.1 wallet/RPC CLI for transactions and public account reads) | `MockRegistryClient` (feature `test-util`) |
 | Geofabrik | real service | `set_url_rewrite(base)` → wiremock or a mirror |
 
 Retries: downloads and storage uploads retry with exponential back-off
 (1s, 2s, 4s … capped 30s) and surface `SdkError::RetriesExhausted` with the
 full context after the last attempt. Checksum mismatches fail fast with
 `ChecksumMismatch { expected, actual }` and never register anything.
+
+`LEE_WALLET_HOME_DIR` selects the v0.3.1 wallet home. Set `OSM_RPC_URL` (or pass the CLI's `--rpc-url`) to select a sequencer. The deployed program account ID is the program-loader header account, distinct from the image ID printed by `make build`. Registry bytes are fetched from `account.data.shard(program_account_id)` and Borsh-decoded as `osm_registry_core::Registry`.

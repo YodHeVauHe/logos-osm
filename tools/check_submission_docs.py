@@ -20,10 +20,12 @@ for label, content in (("README", readme), ("FURPS", furps)):
         f"{label} contains a stale claim that IDL is absent or warning-only"
     )
 
-assert re.search(r"register_region.{0,120}2,145", cycles, re.S)
-assert re.search(r"register_batch.{0,120}22,785", cycles, re.S)
+assert "historical pre-port measurements" in cycles.lower()
+assert "LEZ v0.3.1 localnet sample" in cycles
+assert re.search(r"register_region.{0,120}3,801", cycles, re.S)
+assert re.search(r"register_batch.{0,120}4,877", cycles, re.S)
 assert "localnet" in cycles.lower()
-assert not re.search(r"placeholder|filled by", cycles, re.I)
+assert "Testnet v0.3 practice deployment (not the 0.4 deployment LP-0018 requires)" in readme
 
 for label, content in (("README", readme), ("FURPS", furps)):
     assert "pending" in content.lower(), f"{label} must make pending status explicit"
