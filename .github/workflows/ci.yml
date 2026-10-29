@@ -42,6 +42,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
       - name: Install RISC0 toolchain (rzup)
         run: |
           curl -L https://risczero.com/install | bash
@@ -70,26 +73,24 @@ jobs:
         run: cargo install --locked --git https://github.com/logos-co/logos-scaffold logos-scaffold
       - name: Start localnet
         run: |
-          lgs setup
+          PYTHON_LIBDIR=$(python -c 'import sysconfig; print(sysconfig.get_config_var("LIBDIR"))')
+          LIBRARY_PATH="$PYTHON_LIBDIR" LD_LIBRARY_PATH="$PYTHON_LIBDIR" lgs setup
           lgs localnet start
           lgs localnet status
       - name: Build registry instruction client
-        run: make cli
+        run: |
+          PYTHON_LIBDIR=$(python -c 'import sysconfig; print(sysconfig.get_config_var("LIBDIR"))')
+          LIBRARY_PATH="$PYTHON_LIBDIR" LD_LIBRARY_PATH="$PYTHON_LIBDIR" make cli
       - name: Deploy registry
-        run: lgs deploy
-      - name: Mint signer + initialize registry
+        run: lgs deploy --program-path methods/guest/target/riscv32im-risc0-zkvm-elf/osm_registry.bin
+      - name: Derive local signer account
+        id: signer
         run: |
-          lgs wallet topup 1
-      - name: Require real Logos Storage runner configuration
-        env:
-          LOGOSCORE_BIN: ${{ vars.LOGOSCORE_BIN }}
-          STORAGE_MODULES_DIR: ${{ vars.STORAGE_MODULES_DIR }}
-          OSM_STORAGE_CONFIG: ${{ vars.OSM_STORAGE_CONFIG }}
-        run: |
-          test -n "$LOGOSCORE_BIN" && test -x "$LOGOSCORE_BIN"
-          test -n "$STORAGE_MODULES_DIR" && test -d "$STORAGE_MODULES_DIR"
-          test -n "$OSM_STORAGE_CONFIG" && test -f "$OSM_STORAGE_CONFIG"
-      - name: On-chain e2e (host → query → download)
+          ADDRESS=$(LOGOS_SCAFFOLD_QUIET=1 lgs wallet -- account new public --label lp0018-e2e \
+            | python -c 'import re,sys; m=re.search(r"Generated new account with account_id (Public/[1-9A-HJ-NP-Za-km-z]+)", sys.stdin.read()); assert m, "lgs did not print the new public account"; print(m.group(1))')
+          lgs wallet topup "$ADDRESS" --json
+          echo "account_id=$ADDRESS" >> "$GITHUB_OUTPUT"
+      - name: On-chain registry e2e (host → register → query)
         env:
           LGS_LOCALNET: "1"
           OSM_PROGRAM_ID: ${{ steps.pid.outputs.program_id }}
@@ -97,11 +98,11 @@ jobs:
           OSM_IDL_PATH: ${{ github.workspace }}/idl/osm-registry.idl.json
           LGS_BIN: lgs
           LEE_WALLET_HOME_DIR: ${{ github.workspace }}/.scaffold/wallet
-          OSM_SIGNER_ACCOUNT_ID: Public/CbgR6tj5kWx5oziiFptM7jMvrQeYY3Mzaao6ciuhSr2r
-          LOGOSCORE_BIN: ${{ vars.LOGOSCORE_BIN }}
-          STORAGE_MODULES_DIR: ${{ vars.STORAGE_MODULES_DIR }}
-          OSM_STORAGE_CONFIG: ${{ vars.OSM_STORAGE_CONFIG }}
-        run: cargo test -p osm_e2e --features e2e -- --nocapture
+          OSM_SIGNER_ACCOUNT_ID: ${{ steps.signer.outputs.account_id }}
+        run: |
+          PYTHON_LIBDIR=$(python -c 'import sysconfig; print(sysconfig.get_config_var("LIBDIR"))')
+          LIBRARY_PATH="$PYTHON_LIBDIR" LD_LIBRARY_PATH="$PYTHON_LIBDIR" \
+            cargo test -p osm_e2e --features e2e localnet_registry_host_query -- --nocapture
       - name: Capture cycle counts (register / register_batch)
         run: |
           lgs localnet logs --tail 500 > localnet.log
@@ -113,6 +114,9 @@ jobs:
         with:
           name: cycles
           path: cycles.txt
+      - name: Stop localnet
+        if: always()
+        run: lgs localnet stop
 
   nix:
     name: nix (Basecamp module + app)
