@@ -28,12 +28,13 @@ jobs:
   retrieve:
     runs-on: ubuntu-latest
     timeout-minutes: 60
-    env:
-      OSM_TOOLS_DIR: ${{ runner.temp }}/tools
-      LOGOSCTL_CONFIG_DIR: ${{ runner.temp }}/storage-session
-      STORAGE_DATA_DIR: ${{ runner.temp }}/storage-data
     steps:
       - uses: actions/checkout@v4
+      - name: Paths
+        run: |
+          echo "OSM_TOOLS_DIR=$RUNNER_TEMP/tools" >> "$GITHUB_ENV"
+          echo "LOGOSCTL_CONFIG_DIR=$RUNNER_TEMP/storage-session" >> "$GITHUB_ENV"
+          echo "STORAGE_DATA_DIR=$RUNNER_TEMP/storage-data" >> "$GITHUB_ENV"
       - name: Install pinned logosctl 0.3.2 (checksums verified)
         run: SKIP_BUILD=1 tools/coverage.sh setup
       - name: Start a fresh Storage node (bootstrap only)
