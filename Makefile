@@ -4,7 +4,7 @@ GUEST_BIN := methods/guest/target/riscv32im-risc0-zkvm-elf/osm_registry.bin
 IDL := idl/osm-registry.idl.json
 FFI_SO := osm-module/lib/libosm_ffi.so
 
-.PHONY: build ffi idl cli deploy inspect fmt clippy test clean all
+.PHONY: build ffi idl cli deploy inspect fmt clippy test clean all coverage-setup coverage-node coverage-host coverage-verify coverage-verify-registry coverage-supervise coverage-status
 
 all: build ffi idl
 
@@ -52,3 +52,25 @@ clean:
 	$(RUST_ENV) cargo clean
 	cd ffi && $(RUST_ENV) cargo clean
 	rm -f $(IDL) $(GUEST_BIN) $(FFI_SO)
+
+# LP-0018 coverage on testnet v0.3 (see docs/coverage-testnet-v0.3.md).
+coverage-setup:
+	tools/coverage.sh setup
+
+coverage-node:
+	tools/coverage.sh node
+
+coverage-host:
+	tools/coverage.sh host
+
+coverage-verify:
+	tools/coverage.sh verify
+
+coverage-verify-registry:
+	python3 tools/verify_coverage.py --registry-only
+
+coverage-supervise:
+	tools/coverage.sh supervise
+
+coverage-status:
+	tools/coverage.sh status

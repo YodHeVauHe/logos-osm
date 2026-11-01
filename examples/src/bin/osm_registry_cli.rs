@@ -4,10 +4,43 @@ use borsh::{BorshDeserialize, BorshSerialize};
 use clap::{Parser, Subcommand};
 use lee_core::{account::AccountId, program::PdaSeed};
 use osm_registry_core::{RegionEntry, Registry};
+use sequencer_service_rpc::RpcClient as _;
 use wallet::{
     config::{SequencerConnectionData, WalletConfigOverrides},
     AccountIdentity, WalletCore,
 };
+
+/// Fixed per-transaction wire overhead (header, selectors, nonces, fee
+/// declaration, one signature and key) on top of the instruction bytes, rounded
+/// up so the estimate never undershoots the sequencer's `data_bytes`.
+const TX_OVERHEAD_BYTES: u64 = 1_024;
+
+/// The fee reserve the sequencer screens a public transaction against before
+/// admission (`lez/programs/fee/core/src/assess.rs::fee_reserve`):
+/// `gas_limit * base_fee_exec + data_bytes * base_fee_stor + tip`, priced here at
+/// the next block's ceiling so a fee step between quote and inclusion still fits.
+fn fee_reserve_estimate(
+    gas_limit: u64,
+    data_bytes: u64,
+    base_fee_exec: u64,
+    base_fee_stor: u64,
+) -> u128 {
+    u128::from(gas_limit) * u128::from(base_fee_exec)
+        + u128::from(data_bytes) * u128::from(base_fee_stor)
+}
+
+/// Refuses to submit when the payer cannot cover the reserve, naming the
+/// numbers instead of surfacing the sequencer's bare "Incorrect fee".
+fn check_payer_can_fund(balance: u128, reserve: u128, gas_limit: u64) -> anyhow::Result<()> {
+    if balance < reserve {
+        anyhow::bail!(
+            "fee payer balance {balance} is below the fee reserve {reserve} \
+             (gas limit {gas_limit}); the sequencer would reject this as \"Incorrect fee\". \
+             Lower --gas-limit / OSM_GAS_LIMIT or fund the payer"
+        );
+    }
+    Ok(())
+}
 
 #[derive(Parser)]
 #[command(about = "Submit OSM registry transactions to a LEZ v0.3.1 sequencer")]
@@ -16,6 +49,16 @@ struct Args {
     rpc_url: Option<String>,
     #[arg(long, env = "OSM_PROGRAM_ID")]
     program_id: String,
+    /// Execution gas limit declared on each transaction. The sequencer reserves
+    /// `gas_limit * base_fee_exec` from the payer up front, so a payer holding
+    /// less than that is turned away with "Incorrect fee" even when the actual
+    /// cost would fit. Defaults to the wallet config (2,000,000 in v0.3.1).
+    #[arg(long, env = "OSM_GAS_LIMIT")]
+    gas_limit: Option<u64>,
+    /// Blocks to poll for inclusion before giving up (wallet default: 5, which
+    /// times out on testnet even when the transaction lands later).
+    #[arg(long, env = "OSM_POLL_BLOCKS", default_value_t = 40)]
+    poll_blocks: usize,
     #[command(subcommand)]
     command: Command,
 }
@@ -56,7 +99,7 @@ enum Instruction {
 async fn main() -> anyhow::Result<()> {
     let args = Args::parse();
     let program_id = AccountId::from_str(&args.program_id)?;
-    let wallet = wallet(&args.rpc_url)?;
+    let wallet = wallet(&args.rpc_url, args.gas_limit, args.poll_blocks)?;
     let seed = PdaSeed::new({
         let mut bytes = [0; 32];
         bytes[..8].copy_from_slice(b"registry");
@@ -117,21 +160,29 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn wallet(rpc_url: &Option<String>) -> anyhow::Result<WalletCore> {
-    if let Some(rpc_url) = rpc_url {
-        let config = wallet::helperfunctions::fetch_config_path()?;
-        let storage = wallet::helperfunctions::fetch_persistent_storage_path()?;
-        let overrides = WalletConfigOverrides {
-            sequencer: Some(SequencerConnectionData {
-                sequencer_addr: rpc_url.parse()?,
+fn wallet(
+    rpc_url: &Option<String>,
+    gas_limit: Option<u64>,
+    poll_blocks: usize,
+) -> anyhow::Result<WalletCore> {
+    let config = wallet::helperfunctions::fetch_config_path()?;
+    let storage = wallet::helperfunctions::fetch_persistent_storage_path()?;
+    let sequencer = rpc_url
+        .as_ref()
+        .map(|url| -> anyhow::Result<_> {
+            Ok(SequencerConnectionData {
+                sequencer_addr: url.parse()?,
                 basic_auth: None,
-            }),
-            ..Default::default()
-        };
-        WalletCore::new_update_chain(config, storage, Some(overrides))
-    } else {
-        WalletCore::from_env()
-    }
+            })
+        })
+        .transpose()?;
+    let overrides = WalletConfigOverrides {
+        sequencer,
+        gas_limit,
+        seq_tx_poll_max_blocks: Some(poll_blocks),
+        ..Default::default()
+    };
+    WalletCore::new_update_chain(config, storage, Some(overrides))
 }
 
 async fn send(
@@ -142,16 +193,54 @@ async fn send(
     instruction: &Instruction,
 ) -> anyhow::Result<()> {
     let payer = AccountId::from_str(payer)?;
+    let instruction_data = borsh::to_vec(instruction)?;
+    let gas_limit = wallet.config().gas_limit;
+    let quote = wallet.client().get_fee_state().await?;
+    let data_bytes = u64::try_from(instruction_data.len())? + TX_OVERHEAD_BYTES;
+    let reserve = fee_reserve_estimate(
+        gas_limit,
+        data_bytes,
+        quote.next_base_fee_exec_ceiling,
+        quote.next_base_fee_stor_ceiling,
+    );
+    let balance_before = wallet.get_account_balance(payer).await?;
+    eprintln!(
+        "fee preflight: payer balance {balance_before}, reserve ~{reserve} (gas limit {gas_limit})"
+    );
+    check_payer_can_fund(balance_before, reserve, gas_limit)?;
     let account = AccountIdentity::PublicNoSign(registry_id).select_program_shard(program_id);
     let hash = wallet
-        .send_pub_tx_paid_by(
-            vec![account],
-            borsh::to_vec(instruction)?,
-            program_id,
-            Some(payer),
-        )
+        .send_pub_tx_paid_by(vec![account], instruction_data, program_id, Some(payer))
         .await?;
+    println!("Submitted: {hash:?}");
     wallet.poll_transaction(hash).await?;
     println!("Transaction: {hash:?}");
+    let balance_after = wallet.get_account_balance(payer).await?;
+    eprintln!("fee paid: {}", balance_before.saturating_sub(balance_after));
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn reserve_matches_the_sequencer_formula() {
+        // 2,000,000 gas at base fee 8 plus 1,500 bytes at 8.
+        assert_eq!(fee_reserve_estimate(2_000_000, 1_500, 8, 8), 16_012_000);
+    }
+
+    #[test]
+    fn default_gas_limit_is_refused_when_balance_is_below_reserve() {
+        // The observed failure: 15,383,554 left, 2M gas at base fee 8.
+        let reserve = fee_reserve_estimate(2_000_000, 1_500, 8, 8);
+        let err = check_payer_can_fund(15_383_554, reserve, 2_000_000).unwrap_err();
+        assert!(err.to_string().contains("below the fee reserve"));
+    }
+
+    #[test]
+    fn a_lower_gas_limit_fits_the_same_balance() {
+        let reserve = fee_reserve_estimate(1_000_000, 1_500, 9, 9);
+        check_payer_can_fund(15_383_554, reserve, 1_000_000).unwrap();
+    }
 }

@@ -260,6 +260,26 @@ impl OsmSdk {
         opts: HostOpts,
         checksum_override: Option<String>,
     ) -> Result<RegionEntry, SdkError> {
+        let mut entry = self
+            .prepare_local(region, file, opts, checksum_override)
+            .await?;
+        entry.registered_by = signer;
+        self.registry
+            .register(std::slice::from_ref(&entry), signer)
+            .await?;
+        Ok(entry)
+    }
+
+    /// Verify and store local bytes, returning the entry before registration.
+    /// This supports workflows that require a successful Storage roundtrip
+    /// before publishing the CID on chain.
+    pub async fn prepare_local(
+        &self,
+        region: &str,
+        file: &Path,
+        opts: HostOpts,
+        checksum_override: Option<String>,
+    ) -> Result<RegionEntry, SdkError> {
         let def = regions::get(region).ok_or_else(|| SdkError::UnknownRegion(region.into()))?;
         let expected = match checksum_override.clone() {
             Some(c) => c,
@@ -288,11 +308,25 @@ impl OsmSdk {
             version,
             hosted: opts.hosted,
             timestamp: now_unix(),
-            registered_by: signer,
+            registered_by: [0u8; 32],
             record_version: 1,
         };
         osm_registry_core::validate_entry(&entry).map_err(|code| SdkError::InvalidEntry {
             region: region.to_string(),
+            code,
+        })?;
+        Ok(entry)
+    }
+
+    /// Register a previously prepared entry after external verification.
+    pub async fn register_prepared(
+        &self,
+        mut entry: RegionEntry,
+        signer: [u8; 32],
+    ) -> Result<RegionEntry, SdkError> {
+        entry.registered_by = signer;
+        osm_registry_core::validate_entry(&entry).map_err(|code| SdkError::InvalidEntry {
+            region: entry.region.clone(),
             code,
         })?;
         self.registry
@@ -673,6 +707,35 @@ mod tests {
             wrong.unwrap_err(),
             SdkError::ChecksumMismatch { .. }
         ));
+    }
+
+    #[tokio::test]
+    async fn prepare_local_defers_registration_until_explicit_register() {
+        let (sdk, storage, mock) = sdk_for_tests();
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("germany.pbf");
+        let bytes = b"prepared real bytes";
+        tokio::fs::write(&file, bytes).await.unwrap();
+        let checksum = hex::encode(md5_of(bytes));
+
+        let prepared = sdk
+            .prepare_local(
+                "germany",
+                &file,
+                HostOpts::default(),
+                Some(checksum.clone()),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(prepared.checksum, checksum);
+        assert!(prepared.hosted);
+        assert_eq!(storage.object_count().await, 1);
+        assert_eq!(mock.register_call_count(), 0);
+
+        let registered = sdk.register_prepared(prepared, [9; 32]).await.unwrap();
+        assert_eq!(registered.registered_by, [9; 32]);
+        assert_eq!(mock.register_call_count(), 1);
     }
 
     #[tokio::test]

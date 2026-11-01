@@ -1,0 +1,258 @@
+{
+  "rpc": "https://testnet.lez.logos.co",
+  "registry_pda": "C5UwQUopzYvYREczjNJNf8fjmzrmf2QWK2f7Dd2YRgrS",
+  "rows": [
+    {
+      "region": "china/henan",
+      "cid": "zDvZRwzm5FYsh7BU1kK1TzjuZU92FyLFvqMjGUm5zm9pzWMLMUSP",
+      "checksum": "54c5fbf47dc51588de2ffb0a0a94a771",
+      "md5": "54c5fbf47dc51588de2ffb0a0a94a771",
+      "bytes": 50468082,
+      "seconds": 0.7,
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "region": "china/shandong",
+      "cid": "zDvZRwzm2Pfy2E6VSL3coKQT6b3jd2Qs1NqB8nnXa2ZpMc1bZdix",
+      "checksum": "936804b0029f858792fd074a480663e0",
+      "md5": "936804b0029f858792fd074a480663e0",
+      "bytes": 71913523,
+      "seconds": 0.8,
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "region": "china/jiangsu",
+      "cid": "zDvZRwzkyz2AjBB2yKn2rTr4k8BAqPvKRi9tWZCe3cUqPE7xEHkb",
+      "checksum": "bd167b743906ef39ba008118559dcbfd",
+      "md5": "bd167b743906ef39ba008118559dcbfd",
+      "bytes": 80205126,
+      "seconds": 0.8,
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "region": "china/zhejiang",
+      "cid": "zDvZRwzm11a2mRKe6pEShG3Yq8UxXXhFyaXGKMwSYs4fJtbkb3Rf",
+      "checksum": "bd4091f25fbb2db67113844e3d00bb68",
+      "md5": "bd4091f25fbb2db67113844e3d00bb68",
+      "bytes": 91176749,
+      "seconds": 0.8,
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "region": "china/sichuan",
+      "cid": "zDvZRwzmBQPWpmmLNVUYizuWY8CANm19gzNBVVRwRM1R23nBagHQ",
+      "checksum": "33c8c07feaeb53d0a523380143e8a54f",
+      "md5": "33c8c07feaeb53d0a523380143e8a54f",
+      "bytes": 107974694,
+      "seconds": 0.8,
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "region": "china/guangdong",
+      "cid": "zDvZRwzm8zALCKjNP1yEbqXWFwtETbYhWNsDR4nAFfA85NqBTDdC",
+      "checksum": "7ec207b0493f92d37549910fe87d5e72",
+      "md5": "7ec207b0493f92d37549910fe87d5e72",
+      "bytes": 174433443,
+      "seconds": 1.0,
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "region": "india/north-eastern-zone",
+      "cid": "zDvZRwzm9LEGekwHeE8hCfdnCLjC71nKZBCFJFXavdnBcG38s9jN",
+      "checksum": "d6b00fd171ecde41f384047aa8913268",
+      "md5": "d6b00fd171ecde41f384047aa8913268",
+      "bytes": 109874695,
+      "seconds": 1.0,
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "region": "india/western-zone",
+      "cid": "zDvZRwzm8Pz4nAGzomqqSzuecuVgfgjcpiuZccL8r6zP8o39qbLD",
+      "checksum": "f963ba20a61701711422c0e8ec843232",
+      "md5": "f963ba20a61701711422c0e8ec843232",
+      "bytes": 221848192,
+      "seconds": 1.4,
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "region": "india/northern-zone",
+      "cid": "zDvZRwzm9zdhc7VUCNkA6CjajjjMrTLmifioRABcQbRebZonn5fk",
+      "checksum": "de5fd920288ee472cd0dce3ecc5531d1",
+      "md5": "de5fd920288ee472cd0dce3ecc5531d1",
+      "bytes": 224446975,
+      "seconds": 1.4,
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "region": "india/eastern-zone",
+      "cid": "zDvZRwzm5pYkevJoBNi9zVxo61bJFbN8HpGANZDDnRXSDinQMD3c",
+      "checksum": "62eac0b8b77aee9a3a48946e01b4ae66",
+      "md5": "62eac0b8b77aee9a3a48946e01b4ae66",
+      "bytes": 247523471,
+      "seconds": 1.6,
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "region": "ethiopia",
+      "cid": "zDvZRwzm5LREspW9YAxns9wbRtgn3qZqB981vya6kZygozdw2uyH",
+      "checksum": "05d69181c2ee748a37d6d5641982bd0c",
+      "md5": "05d69181c2ee748a37d6d5641982bd0c",
+      "bytes": 140134692,
+      "seconds": 1.1,
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "region": "kenya",
+      "cid": "zDvZRwzmAyrmSrDaqrVG5LVZ76edPDir5tV5suTSU6g2BpDsoVSw",
+      "checksum": "e0407a073682244871fbb512c51f0827",
+      "md5": "e0407a073682244871fbb512c51f0827",
+      "bytes": 351721422,
+      "seconds": 2.0,
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "region": "egypt",
+      "cid": "zDvZRwzm4JnHgjkduxDD4EZ4gjoCPS7d6cJ87MjYXkaXznj6DFDY",
+      "checksum": "a75319d9b4d57de7613c62c7b9e1d9f1",
+      "md5": "a75319d9b4d57de7613c62c7b9e1d9f1",
+      "bytes": 178976151,
+      "seconds": 1.2,
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "region": "morocco",
+      "cid": "zDvZRwzkzw66rhXUHg7SQLtYgocijZgP483Tv4QmVihZUt5Yycw1",
+      "checksum": "b4a6bf3fe5bfa006f3e5d152f7292b6f",
+      "md5": "b4a6bf3fe5bfa006f3e5d152f7292b6f",
+      "bytes": 244308777,
+      "seconds": 1.4,
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "region": "pakistan",
+      "cid": "zDvZRwzmA8KcPfkuoaQiibjArwjnPrwUUwRjzXqS4EikDw2hTcqm",
+      "checksum": "c6357e9b03e805cada430db19b9047e5",
+      "md5": "c6357e9b03e805cada430db19b9047e5",
+      "bytes": 157641611,
+      "seconds": 1.2,
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "region": "iran",
+      "cid": "zDvZRwzkzEzoK8M75GSvKSRhbk9J6PyJvXWDv2YjyuTVbytfmVVH",
+      "checksum": "b2f9d62ec69cb9f342e3f3b940e1afe0",
+      "md5": "b2f9d62ec69cb9f342e3f3b940e1afe0",
+      "bytes": 229960254,
+      "seconds": 1.4,
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "region": "malaysia",
+      "cid": "zDvZRwzkyMiYmhNodDiDBCH6AUYDgTRzu8nDtfksfANndCZ5539w",
+      "checksum": "da62ff73517c022dd8b8da32dd9153f5",
+      "md5": "da62ff73517c022dd8b8da32dd9153f5",
+      "bytes": 252643071,
+      "seconds": 1.5,
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "region": "south-korea",
+      "cid": "zDvZRwzm4xT6v3w2z971Cenvk8X1CDaX9KXS7ZuKDy1LuERZWgCU",
+      "checksum": "12a7607c7a2dde1014406bbb45d1688c",
+      "md5": "12a7607c7a2dde1014406bbb45d1688c",
+      "bytes": 290559413,
+      "seconds": 1.5,
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "region": "thailand",
+      "cid": "zDvZRwzkwVVR423XAJGGAJ9QKo2gsrEsMXU2jBU9SsBtyoEypVdV",
+      "checksum": "fbd9607f6d6ff4dca5a69d705183b82d",
+      "md5": "fbd9607f6d6ff4dca5a69d705183b82d",
+      "bytes": 329616269,
+      "seconds": 1.6,
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "region": "vietnam",
+      "cid": "zDvZRwzm2vs5TNhkBsd57frByUJXFDFDaqQmyvpCjVaPNFb5r9X2",
+      "checksum": "0ddac22bd1f70f006ba107930da807ef",
+      "md5": "0ddac22bd1f70f006ba107930da807ef",
+      "bytes": 332015990,
+      "seconds": 1.5,
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "region": "bulgaria",
+      "cid": "zDvZRwzmAUzijGDu1Yb1TYXtZ7tJKfe1xuumn7U5oX1GaLm54FnU",
+      "checksum": "9fd72538ac3851ef00b9de9c7f1e6ad4",
+      "md5": "9fd72538ac3851ef00b9de9c7f1e6ad4",
+      "bytes": 176792601,
+      "seconds": 1.1,
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "region": "hungary",
+      "cid": "zDvZRwzmDLgUVGoyHZhZ6DfAji1v1d2aYkKX2Sk9YXfN3GnytyVy",
+      "checksum": "4df6e68bd5a90d97f9f1b28f74a83a4c",
+      "md5": "4df6e68bd5a90d97f9f1b28f74a83a4c",
+      "bytes": 328171424,
+      "seconds": 1.5,
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "region": "romania",
+      "cid": "zDvZRwzkyFeXPkX7WEEtgZrewy91TzNb3LZBSHyZvdH7kuWsgBoU",
+      "checksum": "c78d3053dd01ddf3dfd3b6b13aa5d423",
+      "md5": "c78d3053dd01ddf3dfd3b6b13aa5d423",
+      "bytes": 332504279,
+      "seconds": 1.7,
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "region": "peru",
+      "cid": "zDvZRwzm53HDcgrv3DQopmvbYJNnvnvjuUbXpgg6asSdf8GyMdtA",
+      "checksum": "95d7888520938bb3df5698617f25cdb3",
+      "md5": "95d7888520938bb3df5698617f25cdb3",
+      "bytes": 257179453,
+      "seconds": 1.7,
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "region": "colombia",
+      "cid": "zDvZRwzm2Y8igkEiXhdwxKMhF5hfb9wmQsZjrc9i4x2D9h932qYE",
+      "checksum": "acadedb2675bdd32552439c98ce8372b",
+      "md5": "acadedb2675bdd32552439c98ce8372b",
+      "bytes": 333642224,
+      "seconds": 1.9,
+      "result": "PASS",
+      "detail": ""
+    }
+  ],
+  "controls": [],
+  "passed": 25
+}

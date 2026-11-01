@@ -1,0 +1,146 @@
+{
+  "description": "LP-0018 coverage set: Geofabrik regions hosted in Logos Storage and registered on LEZ testnet v0.3",
+  "pins": {
+    "lez": "v0.3.1",
+    "lez_repo": "https://github.com/logos-blockchain/logos-execution-zone",
+    "logosctl": "0.3.2",
+    "logosctl_url": "https://github.com/logos-co/logos-logoscore-cli/releases/download/0.3.2/logosctl-x86_64-linux.tar.gz",
+    "logosctl_tar_sha256": "294fbcc6409a8851b7471582bdad2dbfaf681b5d1c67dfffec38ada925dc6762",
+    "logosctl_appimage_sha256": "dc2a7e67c7326dada2b9302fb15f9df2cacbe6de3b9db50502ad7831608ffd56",
+    "storage_module": "3.0.2",
+    "storage_network": "logos.test"
+  },
+  "chain": {
+    "rpc": "https://testnet.lez.logos.co",
+    "program_id": "C31bCPXKa5uy1hzmegqMABWLbavoSJbY4Rhrc5yNXPrY",
+    "registry_pda": "C5UwQUopzYvYREczjNJNf8fjmzrmf2QWK2f7Dd2YRgrS",
+    "explorer_tx": "https://explorer.testnet.lez.logos.co/transaction/"
+  },
+  "regions": [
+    {
+      "region": "china/henan",
+      "country": "china",
+      "pbf_url": "https://download.geofabrik.de/asia/china/henan-latest.osm.pbf"
+    },
+    {
+      "region": "china/shandong",
+      "country": "china",
+      "pbf_url": "https://download.geofabrik.de/asia/china/shandong-latest.osm.pbf"
+    },
+    {
+      "region": "china/jiangsu",
+      "country": "china",
+      "pbf_url": "https://download.geofabrik.de/asia/china/jiangsu-latest.osm.pbf"
+    },
+    {
+      "region": "china/zhejiang",
+      "country": "china",
+      "pbf_url": "https://download.geofabrik.de/asia/china/zhejiang-latest.osm.pbf"
+    },
+    {
+      "region": "china/sichuan",
+      "country": "china",
+      "pbf_url": "https://download.geofabrik.de/asia/china/sichuan-latest.osm.pbf"
+    },
+    {
+      "region": "china/guangdong",
+      "country": "china",
+      "pbf_url": "https://download.geofabrik.de/asia/china/guangdong-latest.osm.pbf"
+    },
+    {
+      "region": "india/north-eastern-zone",
+      "country": "india",
+      "pbf_url": "https://download.geofabrik.de/asia/india/north-eastern-zone-latest.osm.pbf"
+    },
+    {
+      "region": "india/western-zone",
+      "country": "india",
+      "pbf_url": "https://download.geofabrik.de/asia/india/western-zone-latest.osm.pbf"
+    },
+    {
+      "region": "india/northern-zone",
+      "country": "india",
+      "pbf_url": "https://download.geofabrik.de/asia/india/northern-zone-latest.osm.pbf"
+    },
+    {
+      "region": "india/eastern-zone",
+      "country": "india",
+      "pbf_url": "https://download.geofabrik.de/asia/india/eastern-zone-latest.osm.pbf"
+    },
+    {
+      "region": "ethiopia",
+      "country": "ethiopia",
+      "pbf_url": "https://download.geofabrik.de/africa/ethiopia-latest.osm.pbf"
+    },
+    {
+      "region": "kenya",
+      "country": "kenya",
+      "pbf_url": "https://download.geofabrik.de/africa/kenya-latest.osm.pbf"
+    },
+    {
+      "region": "egypt",
+      "country": "egypt",
+      "pbf_url": "https://download.geofabrik.de/africa/egypt-latest.osm.pbf"
+    },
+    {
+      "region": "morocco",
+      "country": "morocco",
+      "pbf_url": "https://download.geofabrik.de/africa/morocco-latest.osm.pbf"
+    },
+    {
+      "region": "pakistan",
+      "country": "pakistan",
+      "pbf_url": "https://download.geofabrik.de/asia/pakistan-latest.osm.pbf"
+    },
+    {
+      "region": "iran",
+      "country": "iran",
+      "pbf_url": "https://download.geofabrik.de/asia/iran-latest.osm.pbf"
+    },
+    {
+      "region": "malaysia",
+      "country": "malaysia",
+      "pbf_url": "https://download.geofabrik.de/asia/malaysia-singapore-brunei-latest.osm.pbf"
+    },
+    {
+      "region": "south-korea",
+      "country": "south-korea",
+      "pbf_url": "https://download.geofabrik.de/asia/south-korea-latest.osm.pbf"
+    },
+    {
+      "region": "thailand",
+      "country": "thailand",
+      "pbf_url": "https://download.geofabrik.de/asia/thailand-latest.osm.pbf"
+    },
+    {
+      "region": "vietnam",
+      "country": "vietnam",
+      "pbf_url": "https://download.geofabrik.de/asia/vietnam-latest.osm.pbf"
+    },
+    {
+      "region": "bulgaria",
+      "country": "bulgaria",
+      "pbf_url": "https://download.geofabrik.de/europe/bulgaria-latest.osm.pbf"
+    },
+    {
+      "region": "hungary",
+      "country": "hungary",
+      "pbf_url": "https://download.geofabrik.de/europe/hungary-latest.osm.pbf"
+    },
+    {
+      "region": "romania",
+      "country": "romania",
+      "pbf_url": "https://download.geofabrik.de/europe/romania-latest.osm.pbf"
+    },
+    {
+      "region": "peru",
+      "country": "peru",
+      "pbf_url": "https://download.geofabrik.de/south-america/peru-latest.osm.pbf"
+    },
+    {
+      "region": "colombia",
+      "country": "colombia",
+      "pbf_url": "https://download.geofabrik.de/south-america/colombia-latest.osm.pbf"
+    }
+  ]
+}
