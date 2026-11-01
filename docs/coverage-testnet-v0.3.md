@@ -246,7 +246,7 @@ network.
 | node2, same node | 19:56 | public docs CID *Farewell to Westphalia* (control) | 0 bytes after 3+ min, stopped |
 | node2, via `verify_coverage.py` | 20:03 | `china/henan` | FAIL: no `storageDownloadDone` within 600 s ([output](../coverage/verify-node2-2026-11-01.md)) |
 | node3 (box, peer `16Uiu2HAmLmG8…qbo65bBP`, set up with `tools/coverage.sh node`) | 20:08 | control *Farewell to Westphalia* | FAIL: 0 bytes in 900 s |
-| node3 | 20:23 | `kenya` | in progress at commit time; see PR #7 |
+| node3 | 20:23 | `kenya` + control | FAIL: no `storageDownloadDone` within 900 s, and the control got 0 bytes again (`coverage/verify-node3-2026-11-01.md`) |
 | GitHub Actions `storage-retrieval` (fresh runner) | 20:10 / 20:26 | control + `china/henan` + `kenya` | in progress at commit time; see PR #7 |
 
 The box's own verifier nodes can't fetch even the public control file. So

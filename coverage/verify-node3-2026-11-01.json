@@ -1,0 +1,27 @@
+{
+  "rpc": "https://testnet.lez.logos.co",
+  "registry_pda": "C5UwQUopzYvYREczjNJNf8fjmzrmf2QWK2f7Dd2YRgrS",
+  "rows": [
+    {
+      "region": "kenya",
+      "cid": "zDvZRwzmAyrmSrDaqrVG5LVZ76edPDir5tV5suTSU6g2BpDsoVSw",
+      "checksum": "e0407a073682244871fbb512c51f0827",
+      "md5": null,
+      "bytes": null,
+      "seconds": 920.6,
+      "result": "FAIL",
+      "detail": "no storageDownloadDone within 900s"
+    }
+  ],
+  "controls": [
+    {
+      "label": "westphalia",
+      "cid": "zDvZRwzkzrrYB6sS1rRpRLt4gBhc1pWoyTSjkfszfmj1seaYYLCZ",
+      "ok": false,
+      "bytes": 0,
+      "seconds": 920.8,
+      "detail": "no storageDownloadDone within 900s"
+    }
+  ],
+  "passed": 0
+}
