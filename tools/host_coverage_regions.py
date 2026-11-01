@@ -17,12 +17,13 @@ import urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SELECTION = [
-    "china/henan", "china/shandong", "china/jiangsu", "china/zhejiang", "china/sichuan", "china/guangdong",
-    "india/north-eastern-zone", "india/western-zone", "india/northern-zone", "india/eastern-zone",
-    "ethiopia", "kenya", "egypt", "morocco", "pakistan", "iran", "malaysia", "south-korea", "thailand", "vietnam",
-    "bulgaria", "hungary", "romania", "peru", "colombia",
-]
+DEFAULT_REGIONS_FILE = ROOT / "coverage" / "regions-testnet-v0.3.json"
+
+
+def load_selection(path):
+    """Region list and chain pins from the checked-in coverage data file."""
+    data = json.loads(Path(path).read_text())
+    return [r["region"] for r in data["regions"]], data
 
 
 def digest(path):
@@ -198,7 +199,9 @@ def main():
     ap.add_argument("--program-id", default="C31bCPXKa5uy1hzmegqMABWLbavoSJbY4Rhrc5yNXPrY")
     ap.add_argument("--payer", default="59VSwCJemEPWXBFGwQ8gzyZroNZ4AuQ81hJwpGUqMoEL")
     ap.add_argument("--rpc", default="https://testnet.lez.logos.co")
-    ap.add_argument("--only", action="append", choices=SELECTION)
+    ap.add_argument("--regions-file", type=Path, default=DEFAULT_REGIONS_FILE,
+                    help="checked-in coverage data file (region list and pinned chain/tool versions)")
+    ap.add_argument("--only", action="append")
     ap.add_argument("--gas-limit", type=int, default=1_000_000,
                     help="declared execution gas per registration; the sequencer reserves gas_limit*base_fee "
                          "from the payer before admission, so the wallet default (2,000,000) is refused as "
@@ -222,14 +225,23 @@ def main():
     ]))
     failures = state.setdefault("failures", {})
     defs = {d["region"]: d for d in json.loads((ROOT / "regions.json").read_text())}
-    selected = args.only or SELECTION
-    if len(SELECTION) != 25 or len(set(SELECTION)) != 25 or any(x not in defs for x in SELECTION):
-        raise RuntimeError("selection does not match 25 unique predefined regions")
+    selection, _ = load_selection(args.regions_file)
+    if len(set(selection)) != len(selection) or any(x not in defs for x in selection):
+        raise RuntimeError("regions file must list unique predefined regions from regions.json")
+    unknown = [x for x in (args.only or []) if x not in selection]
+    if unknown:
+        raise RuntimeError(f"--only regions not in {args.regions_file}: {', '.join(unknown)}")
+    selected = args.only or selection
     reconcile(state, args, env, state_path)
+    on_chain, _ = read_registry(args, env)
     for region in selected:
         rec = state["regions"].setdefault(region, {})
         if rec.get("roundtrip_verified") and rec.get("registered"):
             print(f"SKIP {region}: already roundtrip-verified and registered", flush=True); continue
+        existing = on_chain.get(region)
+        if existing and existing.get("hosted") and not rec.get("entry"):
+            # Idempotent across machines: an entry already on chain is never re-downloaded or re-submitted.
+            print(f"SKIP {region}: already registered on chain (cid={existing.get('cid')})", flush=True); continue
         print(f"START {region}", flush=True)
         d = defs[region]
         pbf = dl / (region.replace("/", "__") + ".osm.pbf")

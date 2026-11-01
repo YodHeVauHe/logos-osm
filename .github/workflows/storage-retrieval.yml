@@ -1,0 +1,72 @@
+name: storage-retrieval
+
+# Independent retrieval check: a fresh Logos Storage node on a GitHub runner,
+# with an empty data dir and only the built-in logos.test bootstrap, reads the
+# OSM registry from the public testnet RPC (no keys), fetches region CIDs from
+# the network, and compares their MD5 with the on-chain checksum.
+# The public "Farewell to Westphalia" CID from the Logos docs is fetched as a
+# control, so "network unreachable from the runner" can be told apart from
+# "our CIDs are not being served".
+
+on:
+  workflow_dispatch:
+    inputs:
+      regions:
+        description: "space-separated regions (default: two smallest)"
+        required: false
+        default: "china/henan kenya"
+  pull_request:
+    paths:
+      - "coverage/**"
+      - "tools/coverage.sh"
+      - "tools/verify_coverage.py"
+      - ".github/workflows/storage-retrieval.yml"
+  schedule:
+    - cron: "17 */6 * * *"
+
+jobs:
+  retrieve:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      OSM_TOOLS_DIR: ${{ runner.temp }}/tools
+      LOGOSCTL_CONFIG_DIR: ${{ runner.temp }}/storage-session
+      STORAGE_DATA_DIR: ${{ runner.temp }}/storage-data
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned logosctl 0.3.2 (checksums verified)
+        run: SKIP_BUILD=1 tools/coverage.sh setup
+      - name: Start a fresh Storage node (bootstrap only)
+        run: |
+          tools/coverage.sh node
+          sleep 90
+          "$OSM_TOOLS_DIR/logosctl-0.3.2/squashfs-root/AppRun" --config-dir "$LOGOSCTL_CONFIG_DIR" \
+            call storage_module debug | python3 -c 'import json,sys; v=json.load(sys.stdin)["result"]["value"]; print("peer", v.get("id")); print("addrs", v.get("addrs"))'
+      - name: Verify registry + retrieval
+        id: verify
+        continue-on-error: true
+        run: |
+          only=()
+          for r in ${{ github.event.inputs.regions || 'china/henan kenya' }}; do only+=(--only "$r"); done
+          tools/coverage.sh verify "${only[@]}" --timeout 1200 --work-dir "$RUNNER_TEMP/verify" \
+            --control-cid westphalia=zDvZRwzkzrrYB6sS1rRpRLt4gBhc1pWoyTSjkfszfmj1seaYYLCZ \
+            --json-out "$RUNNER_TEMP/verify.json" | tee "$RUNNER_TEMP/verify.md"
+      - name: Report
+        if: always()
+        run: |
+          {
+            echo "## Independent Storage retrieval (fresh node, bootstrap only)"
+            echo
+            cat "$RUNNER_TEMP/verify.md" 2>/dev/null || echo "verify produced no output"
+            echo
+            echo "verify step outcome: ${{ steps.verify.outcome }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+          tail -n 200 "$LOGOSCTL_CONFIG_DIR/logs/daemon.log" 2>/dev/null | grep -iE "nat|relay|reachab|download|error" | tail -n 60 || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: storage-retrieval
+          path: |
+            ${{ runner.temp }}/verify.md
+            ${{ runner.temp }}/verify.json
+          if-no-files-found: ignore
