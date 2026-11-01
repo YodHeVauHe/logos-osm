@@ -247,11 +247,18 @@ network.
 | node2, via `verify_coverage.py` | 20:03 | `china/henan` | FAIL: no `storageDownloadDone` within 600 s ([output](../coverage/verify-node2-2026-11-01.md)) |
 | node3 (box, peer `16Uiu2HAmLmG8…qbo65bBP`, set up with `tools/coverage.sh node`) | 20:08 | control *Farewell to Westphalia* | FAIL: 0 bytes in 900 s |
 | node3 | 20:23 | `kenya` + control | FAIL: no `storageDownloadDone` within 900 s, and the control got 0 bytes again (`coverage/verify-node3-2026-11-01.md`) |
-| GitHub Actions `storage-retrieval` (fresh runner) | 20:10 / 20:26 | control + `china/henan` + `kenya` | in progress at commit time; see PR #7 |
+| GitHub Actions run [41330147318](https://github.com/YodHeVauHe/logos-osm/actions/runs/41330147318) (fresh runner, relay-only) | 20:13 | control + `china/henan` + `kenya`, 1200 s each | FAIL, 0/2. Control: `Read stream failed`, 0 bytes. Henan: manifest fetch failed after 10 attempts dialing node2 (`…QCmsVV`, which had announced a partial copy) over `p2p-circuit`. The runner did reach node1 (`…Cb3BXd`) over blockexc, but its batch requests ended with `Read loop exited`. Kenya: no `storageDownloadDone` within 1200 s |
+| GitHub Actions runs [41331443910](https://github.com/YodHeVauHe/logos-osm/actions/runs/41331443910), [41331566883](https://github.com/YodHeVauHe/logos-osm/actions/runs/41331566883) | 20:28 / 20:29 | `china/henan` + `kenya`, 600 s each | FAIL, 0/2 in both runs: no `storageDownloadDone` |
 
 The box's own verifier nodes can't fetch even the public control file. So
 from this box, a failed fetch says as much about the box's own NAT/relay path as
-about the publisher. The GitHub runner is the independent check.
+about the publisher. The GitHub runner is the independent check. It failed
+too: content discovery works (the runner finds node1 as a provider), but
+transfers between two relay-only peers break. The runner also could not fetch
+the docs' public control CID, so the public testnet's relays are unreliable in
+general. Log extracts are in [verify-gha-2026-11-01.md](../coverage/verify-gha-2026-11-01.md).
+
+**Result: the hosted data is not retrievable from outside this box today.**
 
 ### What is needed to make it online (needs the user)
 
