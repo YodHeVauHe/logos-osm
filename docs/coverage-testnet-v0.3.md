@@ -34,7 +34,7 @@ the Storage node.
 ## Regions
 
 <!-- regions:begin -->
-**20 regions across 12 countries** (from the registry read-back).
+**22 regions across 14 countries** (from the registry read-back).
 
 | Region | Country | Size | Geofabrik MD5 (= on-chain checksum) | Storage CID | Snapshot | Block | Tx |
 |---|---|---|---|---|---|---|---|
@@ -47,6 +47,7 @@ the Storage node.
 | `china/zhejiang` | China | 91.2 MB | `bd4091f25fbb2db67113844e3d00bb68` | `zDvZRwzm11a2mRKe6pEShG3Yq8UxXXhFyaXGKMwSYs4fJtbkb3Rf` | 261031 | 73099 | [`046adc936858…`](https://explorer.testnet.lez.logos.co/transaction/046adc93685858fc17789a3651eadc6152ca8480146671c4a0bae3e7ad275586) |
 | `egypt` | Egypt | 179.0 MB | `a75319d9b4d57de7613c62c7b9e1d9f1` | `zDvZRwzm4JnHgjkduxDD4EZ4gjoCPS7d6cJ87MjYXkaXznj6DFDY` | 261031 | 73135 | [`3e0d3c66c16d…`](https://explorer.testnet.lez.logos.co/transaction/3e0d3c66c16da74c8892cff651af43169f7d666d2e4fe0dc0b1bc5dcf3c092c8) |
 | `ethiopia` | Ethiopia | 140.1 MB | `05d69181c2ee748a37d6d5641982bd0c` | `zDvZRwzm5LREspW9YAxns9wbRtgn3qZqB981vya6kZygozdw2uyH` | 261031 | 73125 | [`97b4ec6f09ba…`](https://explorer.testnet.lez.logos.co/transaction/97b4ec6f09ba5e24c1f0b413920a7b21bd7d58b6f102767a2214a3f0e4ec3f57) |
+| `hungary` | Hungary | 328.2 MB | `4df6e68bd5a90d97f9f1b28f74a83a4c` | `zDvZRwzmDLgUVGoyHZhZ6DfAji1v1d2aYkKX2Sk9YXfN3GnytyVy` | 261031 | 73233 | [`0a28b2564929…`](https://explorer.testnet.lez.logos.co/transaction/0a28b25649298357d0fb6b95b28102c418cb63a5ac9c28b22cebcfd972ccecd7) |
 | `india/eastern-zone` | India | 247.5 MB | `62eac0b8b77aee9a3a48946e01b4ae66` | `zDvZRwzm5pYkevJoBNi9zVxo61bJFbN8HpGANZDDnRXSDinQMD3c` | 261031 | 73123 | [`c5c6d32e6de8…`](https://explorer.testnet.lez.logos.co/transaction/c5c6d32e6de850a79c6867a51d8077e90b8245ab80c830af9e97007e1e802171) |
 | `india/north-eastern-zone` | India | 109.9 MB | `d6b00fd171ecde41f384047aa8913268` | `zDvZRwzm9LEGekwHeE8hCfdnCLjC71nKZBCFJFXavdnBcG38s9jN` | 261031 | 73107 | [`fb5dc8bd9789…`](https://explorer.testnet.lez.logos.co/transaction/fb5dc8bd9789d283ef931384ec11894cb667baa2565453d6af5307f8986a78d9) |
 | `india/northern-zone` | India | 224.4 MB | `de5fd920288ee472cd0dce3ecc5531d1` | `zDvZRwzm9zdhc7VUCNkA6CjajjjMrTLmifioRABcQbRebZonn5fk` | 261031 | 73118 | [`fee8be79a2d2…`](https://explorer.testnet.lez.logos.co/transaction/fee8be79a2d2f5e2e868c9e47ee78d3b54becf3555e3e65b7f9ecfed4ee09bc9) |
@@ -58,6 +59,7 @@ the Storage node.
 | `pakistan` | Pakistan | 157.6 MB | `c6357e9b03e805cada430db19b9047e5` | `zDvZRwzmA8KcPfkuoaQiibjArwjnPrwUUwRjzXqS4EikDw2hTcqm` | 261031 | 73146 | [`03de19923403…`](https://explorer.testnet.lez.logos.co/transaction/03de199234038a090c1c3b50a30f23415323060ca072bf16c4a9c1d87c3f5fab) |
 | `south-korea` | South Korea | 290.6 MB | `12a7607c7a2dde1014406bbb45d1688c` | `zDvZRwzm4xT6v3w2z971Cenvk8X1CDaX9KXS7ZuKDy1LuERZWgCU` | 261031 | 73179 | [`7b2d951f626e…`](https://explorer.testnet.lez.logos.co/transaction/7b2d951f626edb48f353f39fa02c7dc48efbdc86a89c146bf9580278cb81bb0a) |
 | `thailand` | Thailand | 329.6 MB | `fbd9607f6d6ff4dca5a69d705183b82d` | `zDvZRwzkwVVR423XAJGGAJ9QKo2gsrEsMXU2jBU9SsBtyoEypVdV` | 261031 | 73185 | [`b8df8ab5541f…`](https://explorer.testnet.lez.logos.co/transaction/b8df8ab5541f5cf427d4503ba3330372f23661dad55f8f8d97c561dfd0f83d45) |
+| `vietnam` | Vietnam | 332.0 MB | `0ddac22bd1f70f006ba107930da807ef` | `zDvZRwzm2vs5TNhkBsd57frByUJXFDFDaqQmyvpCjVaPNFb5r9X2` | 261031 | 73216 | [`901f7a334646…`](https://explorer.testnet.lez.logos.co/transaction/901f7a334646481b87ea2fce5bc4b9d7416750595dfb27cb9882f3343c1c54a5) |
 <!-- regions:end -->
 
 Explorer note: when this doc was written, `explorer.testnet.lez.logos.co` showed
