@@ -1,0 +1,17 @@
+{
+  "rpc": "https://testnet.lez.logos.co",
+  "registry_pda": "C5UwQUopzYvYREczjNJNf8fjmzrmf2QWK2f7Dd2YRgrS",
+  "rows": [
+    {
+      "region": "china/henan",
+      "cid": "zDvZRwzm5FYsh7BU1kK1TzjuZU92FyLFvqMjGUm5zm9pzWMLMUSP",
+      "checksum": "54c5fbf47dc51588de2ffb0a0a94a771",
+      "md5": null,
+      "bytes": null,
+      "seconds": 600.5,
+      "result": "FAIL",
+      "detail": "no storageDownloadDone within 600s"
+    }
+  ],
+  "passed": 0
+}

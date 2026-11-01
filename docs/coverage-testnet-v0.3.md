@@ -11,7 +11,84 @@ registered in the on-chain OSM registry on LEZ testnet v0.3.
 | Registry PDA | `C5UwQUopzYvYREczjNJNf8fjmzrmf2QWK2f7Dd2YRgrS` |
 | Fee payer | `Public/59VSwCJemEPWXBFGwQ8gzyZroNZ4AuQ81hJwpGUqMoEL` |
 | Runner | `tools/host_coverage_regions.py` |
+| Reproduce / verify | `tools/coverage.sh` (see [Reproduce](#reproduce)) |
 | Table generator | `tools/coverage_evidence_table.py` (fails if any on-chain CID or checksum differs from the verified local record) |
+
+## Reproduce
+
+Everything is pinned in [`coverage/regions-testnet-v0.3.json`](../coverage/regions-testnet-v0.3.json):
+LEZ `v0.3.1` (git tag in `examples/Cargo.toml`), `logosctl` `0.3.2` (tarball and
+AppImage SHA-256 from the Logos docs), `storage_module` `3.0.2`, network
+`logos.test`, plus the RPC, program id, registry PDA and the 25 regions.
+
+```sh
+tools/coverage.sh setup      # download + sha256-check logosctl 0.3.2, build osm and osm_registry_cli
+tools/coverage.sh node       # start a Storage node on logos.test (built-in bootstrap SPRs)
+tools/coverage.sh supervise  # watchdog: restarts daemon/storage_module only if they are down
+tools/coverage.sh host       # needs a funded LEZ wallet; idempotent (see below)
+tools/coverage.sh verify     # keyless; prints the pass/fail table
+tools/coverage.sh status     # daemon, storage_module and supervisor health
+```
+
+The same steps are `make coverage-setup`, `coverage-node`, `coverage-host`,
+`coverage-verify`, `coverage-verify-registry`, `coverage-supervise`,
+`coverage-status`.
+
+- **Idempotent host.** A region already in local state is skipped. A region not
+  in local state but already registered on chain with `hosted = true` is
+  skipped with `SKIP <region>: already registered on chain`, so a second
+  machine does not register it again. Use `--gas-limit 500000` (the default
+  passed by `coverage.sh`); see the fee root cause below.
+- **Keyless verify.** `tools/verify_coverage.py` reads the registry with the
+  sequencer's `getAccount` JSON-RPC and decodes the Borsh `Registry` itself. No
+  wallet, password or key is used. For each region it downloads the on-chain CID
+  through a Storage node (`downloadToUrl`, network mode), hashes the bytes and
+  compares them with the on-chain checksum. `--registry-only` skips Storage.
+  `--control-cid label=CID` also fetches a CID outside the registry, and
+  `--evict` removes fetched data from a non-hosting verifier node.
+- **Committed output.** [`coverage/verify-node1-2026-11-01.md`](../coverage/verify-node1-2026-11-01.md)
+  (and `.json`): 25/25 PASS across 17 countries, run 2026-11-01 20:08 EAT
+  through the hosting node. That proves the hosted bytes match the chain. It
+  does not prove other nodes can fetch them; see the next section.
+
+### Supervision
+
+`tools/storage_supervisor.sh` checks `logosctl status` and
+`storage_module isRunning` every 60 s and starts only what is down. A healthy
+node is never restarted. The evidence box has no systemd (PID 1 is `tini`), so
+it runs detached there:
+
+```sh
+LOGOSCTL_BIN=<AppRun> LOGOSCTL_CONFIG_DIR=<session> \
+  setsid nohup tools/storage_supervisor.sh >> <session>/supervisor.log 2>&1 < /dev/null &
+# check:
+pgrep -af storage_supervisor.sh; tail <session>/supervisor.log
+logosctl --config-dir <session> status
+logosctl --config-dir <session> call storage_module isRunning
+```
+
+The detached watchdog survives the shell. It does not survive a reboot of the
+box. On a host with systemd, use a unit instead:
+
+```ini
+# /etc/systemd/system/logos-osm-storage.service
+[Unit]
+Description=Logos Storage node for the OSM registry (logos.test)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=logos
+Environment=HOME=/var/lib/logos-node
+Environment=LOGOSCTL_BIN=/usr/local/bin/logosctl
+Environment=LOGOSCTL_CONFIG_DIR=/var/lib/logos-node/.logosctl
+ExecStart=/opt/logos-osm/tools/storage_supervisor.sh
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+```
 
 ## Pipeline per region
 
@@ -115,11 +192,87 @@ Client fix (`examples/src/bin/osm_registry_cli.rs`):
 ## Hosting caveat
 
 All objects live in **one Logos Storage node on a single box**. It is a
-`logosctl` daemon, storage_module v3.0.2, with data under
-`~/.logos_storage/data`. It is not replicated or pinned elsewhere. The registry
-marks entries `hosted = true` because this node holds them, and they can be
-fetched only while this box and its daemon are up. The daemon has run without a
-restart during the run. There is no guarantee that it stays online after the
-evidence run. If it goes away, the on-chain CIDs and checksums remain valid, but
-the data would have to be re-seeded from Geofabrik (same snapshot, same MD5) to
-be retrievable.
+`logosctl` 0.3.2 daemon with storage_module 3.0.2 and data under
+`~/.logos_storage/data`, and since 2026-11-01 20:03 EAT it has been watched by
+`tools/storage_supervisor.sh`. The data is not replicated anywhere else. The
+registry marks entries `hosted = true` because this node holds them.
+
+## Network availability: not proven online
+
+**Status: the data is hosted and verified on one node, but retrieval by an
+independent node over the network has not succeeded. Do not treat these CIDs as
+online on the Logos Storage network yet.** The on-chain entries (CID, checksum,
+source, snapshot) are valid regardless and can be re-seeded from Geofabrik with
+the same MD5.
+
+### How peers find the node
+
+- `logosctl` 0.3.2 bundles `storage_module` 3.0.2 with a built-in `logos.test`
+  preset: bootstrap SPRs, a DHT, and a mix relay pool. A fresh node with an
+  empty data dir joins with no extra configuration (`tools/coverage.sh node`).
+- Per the Logos Storage connectivity docs, with `nat = auto` the node tries
+  UPnP / NAT-PMP / PCP port mapping, then a circuit relay, then hole punching.
+  The docs warn that relay resources are limited and list "downloads time out
+  when downloading from a different machine" as the symptom of a publisher
+  behind NAT. The fix they give is a fixed `listen-port`, that TCP port open,
+  and `nat = extip:<public IP>`.
+
+### The evidence box is not reachable from outside (definite)
+
+Checked 2026-11-01 20:25 EAT:
+
+| Check | Result |
+|---|---|
+| Interface address | `172.30.0.2/24` (private), no public address on any interface |
+| Public egress IPv4 | `104.28.195.115`, **AS13335 Cloudflare** (shared egress, not a host address) |
+| Port mapping | daemon log repeatedly: `TCP port mapping failed ... plum: mapping 0 failed` |
+| Advertised addresses (`storage_module debug`) | only `/p2p-circuit` relay addresses via `47.76.178.164:8070` and `128.140.55.128:8199`; no direct address |
+| Relay health | repeated `libp2p relay ... Reservation timeout` heartbeats in the daemon log |
+| TCP to egress IP on listen port 38371 | not reachable |
+
+The box sits behind NAT on a Cloudflare egress; inbound connections can't reach
+it, and other nodes can reach it only through relays. Nothing on this box can
+change that.
+
+### Independent retrieval attempts
+
+All used `tools/verify_coverage.py` against fresh Storage nodes that have
+their own HOME, session and empty data dir, and that bootstrap only from the
+network.
+
+| Verifier | Started (EAT) | Fetch | Result |
+|---|---|---|---|
+| node2 (box, peer `16Uiu2HAkwwAY…QCmsVV`) | 19:40 | `china/henan` (50.5 MB) | FAIL: connected to node1 over blockexc, streams closed every ~2 min, `storageDownloadDone` failure `Failed to stream file: Read stream failed` at 19:55:56, 0 bytes |
+| node2, same node | 19:56 | public docs CID *Farewell to Westphalia* (control) | 0 bytes after 3+ min, stopped |
+| node2, via `verify_coverage.py` | 20:03 | `china/henan` | FAIL: no `storageDownloadDone` within 600 s ([output](../coverage/verify-node2-2026-11-01.md)) |
+| node3 (box, peer `16Uiu2HAmLmG8…qbo65bBP`, set up with `tools/coverage.sh node`) | 20:08 | control *Farewell to Westphalia* | FAIL: 0 bytes in 900 s |
+| node3 | 20:23 | `kenya` | in progress at commit time; see PR #7 |
+| GitHub Actions `storage-retrieval` (fresh runner) | 20:10 / 20:26 | control + `china/henan` + `kenya` | in progress at commit time; see PR #7 |
+
+The box's own verifier nodes can't fetch even the public control file. So
+from this box, a failed fetch says as much about the box's own NAT/relay path as
+about the publisher. The GitHub runner is the independent check.
+
+### What is needed to make it online (needs the user)
+
+A publicly reachable Storage node that holds the 25 CIDs (about 5 GB):
+
+1. A small VPS with a public IPv4 (1–2 vCPU, 2 GB RAM, ≥ 20 GB disk;
+   roughly US$5–10/month), or a home node with a port forward.
+2. On it: `tools/coverage.sh setup` with `SKIP_BUILD=1`, then
+   `STORAGE_LISTEN_PORT=8070 STORAGE_NAT=extip:<public IP> tools/coverage.sh node`,
+   open TCP 8070, and install the systemd unit above.
+3. Seed it with the exact bytes. Export each CID from the hosting node, which
+   works locally (that is what the 25/25 verify did), copy the files to the
+   VPS, and upload them there with `uploadUrl <file> 65536 true`. Then run
+   `tools/coverage.sh verify` on a third machine; it checks the bytes against
+   the on-chain MD5. `tools/coverage.sh host` alone will not re-seed, because it
+   skips regions already on chain. Re-downloading from Geofabrik works only if
+   the same dated snapshot (261031/261030) is still published.
+4. Keep the `storage-retrieval` workflow as the public check. It runs on PRs that
+   touch coverage files, and every 6 hours once merged.
+
+Until then the honest statement is: **25 regions / 17 countries are registered
+on chain with hosted copies whose bytes match the on-chain checksums
+(25/25 PASS on the hosting node), and network retrieval by an independent node
+is not yet demonstrated.**
