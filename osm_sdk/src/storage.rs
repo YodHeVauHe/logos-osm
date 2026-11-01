@@ -288,6 +288,7 @@ impl StorageBackend for LogosctlStorage {
                     .args(&watch_args)
                     .stdout(std::process::Stdio::piped())
                     .stderr(std::process::Stdio::null())
+                    .kill_on_drop(true)
                     .spawn()
                     .map_err(|e| SdkError::Other(anyhow::anyhow!("spawn logosctl watch: {e}")))?;
                 tokio::time::sleep(std::time::Duration::from_millis(100)).await;
@@ -380,6 +381,7 @@ impl StorageBackend for LogosctlStorage {
                     .args(&watch_args)
                     .stdout(std::process::Stdio::piped())
                     .stderr(std::process::Stdio::null())
+                    .kill_on_drop(true)
                     .spawn()
                     .map_err(|e| SdkError::Other(anyhow::anyhow!("spawn logosctl watch: {e}")))?;
                 tokio::time::sleep(std::time::Duration::from_millis(100)).await;
@@ -557,6 +559,53 @@ mod tests {
             .unwrap_err()
             .to_string()
             .contains("timed out waiting"));
+    }
+
+    #[cfg(target_os = "linux")]
+    #[tokio::test]
+    async fn get_kills_watcher_when_download_has_no_session_id() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let dir = tempfile::tempdir().unwrap();
+        let bin = dir.path().join("logosctl");
+        let pid_file = dir.path().join("watcher.pid");
+        let script = format!(
+            "#!/bin/sh\nif [ \"$3\" = watch ]; then echo $$ > '{}'; exec sleep 30; fi\nif [ \"$5\" = isRunning ]; then echo '{{\"status\":\"ok\",\"result\":true}}'; exit 0; fi\nif [ \"$5\" = downloadToUrl ]; then echo '{{\"status\":\"ok\",\"result\":{{\"error\":null,\"success\":true,\"value\":null}}}}'; exit 0; fi\nexit 2\n",
+            pid_file.display()
+        );
+        tokio::fs::write(&bin, script).await.unwrap();
+        let mut permissions = tokio::fs::metadata(&bin).await.unwrap().permissions();
+        permissions.set_mode(0o755);
+        tokio::fs::set_permissions(&bin, permissions).await.unwrap();
+
+        let mut storage = LogosctlStorage::new(bin, dir.path().join("config"));
+        storage.max_retries = 1;
+        storage.timeout = std::time::Duration::from_secs(1);
+        let result = storage.get("cid", &dir.path().join("download")).await;
+        assert!(result.is_err());
+
+        let pid: i32 = tokio::fs::read_to_string(pid_file)
+            .await
+            .unwrap()
+            .trim()
+            .parse()
+            .unwrap();
+        let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(2);
+        loop {
+            let state = std::fs::read_to_string(format!("/proc/{pid}/stat")).ok();
+            if state.is_none()
+                || state
+                    .as_deref()
+                    .is_some_and(|s| s.split_whitespace().nth(2) == Some("Z"))
+            {
+                break;
+            }
+            assert!(
+                tokio::time::Instant::now() < deadline,
+                "watcher process {pid} is still alive"
+            );
+            tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+        }
     }
 
     #[tokio::test]
