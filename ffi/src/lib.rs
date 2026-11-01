@@ -7,17 +7,17 @@
 //! the message retrievable from `osm_last_error()` (thread-local).
 //!
 //! The config JSON mirrors the CLI config keys:
-//! `{"storage":"memory"|"logoscore", "program_id":"...", "rpc_url":"...",
+//! `{"storage":"memory"|"logosctl", "program_id":"...", "rpc_url":"...",
 //!   "cli_bin":"...", "wallet_home":"...",
-//!   "signer_account_id":"...", "logoscore_bin":"...", "modules_dir":"...",
-//!   "storage_config":"..." }`
+//!   "signer_account_id":"...", "logosctl_bin":"...",
+//!   "storage_config_dir":"..." }`
 
 use std::ffi::{c_char, CStr, CString};
 use std::path::PathBuf;
 use std::sync::OnceLock;
 
 use osm_sdk::registry::{LezWalletRegistryClient, MockRegistryClient, RegistryClient};
-use osm_sdk::storage::{InMemoryStorage, LogoscoreStorage, StorageBackend};
+use osm_sdk::storage::{InMemoryStorage, LogosctlStorage, StorageBackend};
 use osm_sdk::{HostOpts, OsmSdk};
 
 #[derive(serde::Deserialize, Default, Clone)]
@@ -29,9 +29,8 @@ struct FfiConfig {
     rpc_url: Option<String>,
     wallet_home: Option<PathBuf>,
     signer_account_id: Option<String>,
-    logoscore_bin: Option<PathBuf>,
-    modules_dir: Option<PathBuf>,
-    storage_config: Option<PathBuf>,
+    logosctl_bin: Option<PathBuf>,
+    storage_config_dir: Option<PathBuf>,
 }
 
 const VERSION: &str = concat!("logos-osm-ffi/", env!("CARGO_PKG_VERSION"));
@@ -79,18 +78,21 @@ fn build_sdk(cfg: &FfiConfig) -> Result<OsmSdk, String> {
         Some("memory") => Box::new(InMemoryStorage::new()),
         _ => {
             let bin = cfg
-                .logoscore_bin
+                .logosctl_bin
                 .clone()
-                .unwrap_or_else(|| PathBuf::from("logoscore"));
-            let modules = cfg
-                .modules_dir
+                .or_else(|| std::env::var_os("LOGOSCTL_BIN").map(PathBuf::from))
+                .unwrap_or_else(|| PathBuf::from("logosctl"));
+            let config_dir = cfg
+                .storage_config_dir
                 .clone()
-                .unwrap_or_else(|| PathBuf::from("./modules"));
-            let scfg = cfg
-                .storage_config
-                .clone()
-                .unwrap_or_else(|| PathBuf::from("storage.json"));
-            Box::new(LogoscoreStorage::new(bin, modules, scfg))
+                .or_else(|| std::env::var_os("LOGOSCTL_CONFIG_DIR").map(PathBuf::from))
+                .unwrap_or_else(|| {
+                    std::env::var_os("HOME")
+                        .map(PathBuf::from)
+                        .unwrap_or_default()
+                        .join(".logosctl")
+                });
+            Box::new(LogosctlStorage::new(bin, config_dir))
         }
     };
     let registry: Box<dyn RegistryClient> = match cfg.storage.as_deref() {

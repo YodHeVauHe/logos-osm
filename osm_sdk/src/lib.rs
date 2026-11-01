@@ -9,7 +9,7 @@
 //!
 //! The on-chain registry is accessed through [`registry::RegistryClient`]
 //! implementations (SPEL CLI in production, mock in tests); bytes are stored
-//! through [`storage::StorageBackend`] implementations (logoscore binary in
+//! through [`storage::StorageBackend`] implementations (logosctl in
 //! production, in-memory in tests).
 
 pub mod error;

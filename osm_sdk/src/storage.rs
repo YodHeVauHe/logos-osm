@@ -1,16 +1,14 @@
 //! Pluggable storage for PBF files.
 //!
-//! Production uses [`LogoscoreStorage`], which drives the headless
-//! `logoscore` binary (`--load-modules storage_module`) — the same module the
-//! Basecamp storage app hosts, used standalone so the CLI has no GUI
-//! dependency. Tests use [`InMemoryStorage`].
+//! Production uses [`LogosctlStorage`] to call a persistent Logos Storage
+//! module daemon. Tests use [`InMemoryStorage`].
 
 use crate::error::SdkError;
 use crate::geofabrik::backoff_delays;
 use async_trait::async_trait;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use tokio::io::AsyncReadExt;
+use tokio::io::{AsyncBufReadExt, AsyncReadExt};
 use tokio::sync::Mutex;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -95,96 +93,128 @@ impl StorageBackend for InMemoryStorage {
     }
 }
 
-// ── logoscore headless backend ────────────────────────────────────────────
+// ── logosctl backend ──────────────────────────────────────────────────────
 
-/// Drives the `logoscore` binary against the `storage_module`.
-///
-/// One invocation per operation keeps the process stateless; the exact
-/// command strings live in one place so they can be aligned with the
-/// installed logoscore build without touching control flow.
-pub struct LogoscoreStorage {
+/// Drives the current Logos Storage API through a running `logosctl` daemon.
+pub struct LogosctlStorage {
     pub bin: PathBuf,
-    pub modules_dir: PathBuf,
-    pub storage_config: PathBuf,
+    pub config_dir: PathBuf,
     pub max_retries: u32,
+    pub timeout: std::time::Duration,
 }
 
-impl LogoscoreStorage {
-    pub fn new(bin: PathBuf, modules_dir: PathBuf, storage_config: PathBuf) -> Self {
+async fn with_timeout<T, F>(
+    duration: std::time::Duration,
+    label: &str,
+    future: F,
+) -> Result<T, SdkError>
+where
+    F: std::future::Future<Output = Result<T, anyhow::Error>>,
+{
+    tokio::time::timeout(duration, future)
+        .await
+        .map_err(|_| SdkError::Other(anyhow::anyhow!("timed out waiting for {label}")))?
+        .map_err(|e| SdkError::Other(anyhow::anyhow!("{label}: {e}")))
+}
+
+fn require_success_event(name: &str, payload: &serde_json::Value) -> Result<(), SdkError> {
+    if payload.get("success").and_then(|v| v.as_bool()) == Some(true) {
+        Ok(())
+    } else {
+        Err(SdkError::Other(anyhow::anyhow!("{name} failed: {payload}")))
+    }
+}
+
+impl LogosctlStorage {
+    pub fn new(bin: PathBuf, config_dir: PathBuf) -> Self {
         Self {
             bin,
-            modules_dir,
-            storage_config,
+            config_dir,
             max_retries: 5,
+            timeout: std::time::Duration::from_secs(300),
         }
     }
 
-    /// Init + start + op + stop, as a single logoscore command sequence.
     fn base_args(&self) -> Vec<String> {
         vec![
-            "-m".into(),
-            self.modules_dir.to_string_lossy().into(),
-            "--load-modules".into(),
-            "storage_module".into(),
-            "-c".into(),
-            format!(
-                "storage_module.init(@{})",
-                self.storage_config.to_string_lossy()
-            ),
-            "-c".into(),
-            "storage_module.start()".into(),
+            "--config-dir".into(),
+            self.config_dir.to_string_lossy().into(),
         ]
     }
 
-    pub(crate) fn command_for_put(&self, file: &Path, name: &str) -> Vec<String> {
+    pub(crate) fn command_for_call(&self, method: &str, values: &[String]) -> Vec<String> {
         let mut args = self.base_args();
-        args.push("-c".into());
-        args.push(format!(
-            "storage_module.uploadFile({})",
-            file.to_string_lossy()
-        ));
-        args.push("-c".into());
-        args.push(format!("storage_module.nameObject({name:?})"));
-        args.push("-c".into());
-        args.push("storage_module.stop()".into());
+        args.push("call".into());
+        args.push("storage_module".into());
+        args.push(method.into());
+        args.extend(values.iter().cloned());
         args
     }
 
-    pub(crate) fn command_for_get(&self, cid: &str, dest: &Path) -> Vec<String> {
-        let mut args = self.base_args();
-        args.push("-c".into());
-        args.push(format!(
-            "storage_module.downloadFile({cid:?}, {})",
-            dest.to_string_lossy()
-        ));
-        args.push("-c".into());
-        args.push("storage_module.stop()".into());
-        args
+    pub(crate) fn parse_call_result(stdout: &str) -> Result<serde_json::Value, SdkError> {
+        let value: serde_json::Value = serde_json::from_str(stdout.trim())?;
+        if value.get("status").and_then(|v| v.as_str()) == Some("ok") {
+            return Ok(value
+                .get("result")
+                .cloned()
+                .unwrap_or(serde_json::Value::Null));
+        }
+        Err(SdkError::Other(anyhow::anyhow!(
+            "logosctl call failed: {stdout}"
+        )))
     }
 
-    /// Parse the CID out of a logoscore JSON response line.
-    pub(crate) fn parse_cid_output(stdout: &str) -> Result<String, SdkError> {
-        // logoscore prints one JSON object per -c command; take the last
-        // success carrying a non-empty value (the CID).
-        for line in stdout.lines().rev() {
-            let line = line.trim();
-            if !line.starts_with('{') {
-                continue;
-            }
-            if let Ok(v) = serde_json::from_str::<serde_json::Value>(line) {
-                if v.get("success").and_then(|s| s.as_bool()).unwrap_or(false) {
-                    if let Some(val) = v.get("value").and_then(|x| x.as_str()) {
-                        if !val.is_empty() {
-                            return Ok(val.to_string());
-                        }
-                    }
+    pub(crate) fn parse_upload_result(stdout: &str) -> Result<String, SdkError> {
+        let result = Self::parse_call_result(stdout)?;
+        if result.get("success").and_then(|v| v.as_bool()) != Some(true) {
+            return Err(SdkError::Other(anyhow::anyhow!(
+                "storage upload rejected: {result}"
+            )));
+        }
+        result
+            .get("value")
+            .and_then(|v| v.as_str())
+            .filter(|s| !s.is_empty())
+            .map(str::to_owned)
+            .ok_or_else(|| {
+                SdkError::Other(anyhow::anyhow!("upload result has no session ID: {result}"))
+            })
+    }
+
+    pub(crate) fn parse_event(line: &str) -> Result<Option<(String, serde_json::Value)>, SdkError> {
+        let event: serde_json::Value = serde_json::from_str(line.trim())?;
+        let Some(name) = event.get("event").and_then(|v| v.as_str()) else {
+            return Ok(None);
+        };
+        let arg0 = event
+            .get("data")
+            .and_then(|v| v.get("arg0"))
+            .and_then(|v| v.as_str());
+        let payload = match arg0 {
+            Some(s) => serde_json::from_str(s)?,
+            None => event
+                .get("data")
+                .cloned()
+                .unwrap_or(serde_json::Value::Null),
+        };
+        Ok(Some((name.to_owned(), payload)))
+    }
+
+    pub(crate) fn matching_event(
+        stdout: &str,
+        event_name: &str,
+        session_id: &str,
+    ) -> Result<Option<serde_json::Value>, SdkError> {
+        for line in stdout.lines() {
+            if let Some((name, payload)) = Self::parse_event(line)? {
+                if name == event_name
+                    && payload.get("sessionId").and_then(|v| v.as_str()) == Some(session_id)
+                {
+                    return Ok(Some(payload));
                 }
             }
         }
-        Err(SdkError::Other(anyhow::anyhow!(
-            "no success value in logoscore output: {}",
-            stdout.lines().last().unwrap_or("")
-        )))
+        Ok(None)
     }
 
     async fn run(&self, args: &[String]) -> Result<String, SdkError> {
@@ -192,11 +222,11 @@ impl LogoscoreStorage {
             .args(args)
             .output()
             .await
-            .map_err(|e| SdkError::Other(anyhow::anyhow!("spawn logoscore: {e}")))?;
+            .map_err(|e| SdkError::Other(anyhow::anyhow!("spawn logosctl: {e}")))?;
         let stdout = String::from_utf8_lossy(&out.stdout).into_owned();
         if !out.status.success() {
             return Err(SdkError::Other(anyhow::anyhow!(
-                "logoscore failed ({}): {}{}",
+                "logosctl failed ({}): {}{}",
                 out.status,
                 stdout,
                 String::from_utf8_lossy(&out.stderr)
@@ -204,25 +234,118 @@ impl LogoscoreStorage {
         }
         Ok(stdout)
     }
+
+    async fn call(&self, method: &str, values: &[String]) -> Result<serde_json::Value, SdkError> {
+        let args = self.command_for_call(method, values);
+        Self::parse_call_result(&self.run(&args).await?)
+    }
+
+    async fn call_output(&self, method: &str, values: &[String]) -> Result<String, SdkError> {
+        let args = self.command_for_call(method, values);
+        self.run(&args).await
+    }
+
+    async fn ensure_running(&self) -> Result<(), SdkError> {
+        let running = self.call("isRunning", &[]).await?;
+        if running.as_bool() == Some(true) {
+            return Ok(());
+        }
+        let _ = self.call("start", &[]).await?;
+        let until = tokio::time::Instant::now() + self.timeout;
+        loop {
+            if self.call("isRunning", &[]).await?.as_bool() == Some(true) {
+                return Ok(());
+            }
+            if tokio::time::Instant::now() >= until {
+                return Err(SdkError::Other(anyhow::anyhow!(
+                    "storage module start timed out"
+                )));
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+        }
+    }
 }
 
 #[async_trait]
-impl StorageBackend for LogoscoreStorage {
+impl StorageBackend for LogosctlStorage {
     fn name(&self) -> &'static str {
-        "logoscore"
+        "logosctl"
     }
 
     async fn put(&self, file: &Path, name: &str) -> Result<PutReceipt, SdkError> {
-        let args = self.command_for_put(file, name);
+        let _ = name;
         let delays = backoff_delays(self.max_retries);
         let mut last: Option<SdkError> = None;
         for (attempt, delay) in delays.into_iter().enumerate() {
             if attempt > 0 {
                 tokio::time::sleep(delay).await;
             }
-            match self.run(&args).await {
-                Ok(stdout) => {
-                    let cid = Self::parse_cid_output(&stdout)?;
+            match async {
+                self.ensure_running().await?;
+                let mut watch_args = self.base_args();
+                watch_args.extend(["watch".into(), "storage_module".into()]);
+                let mut watcher = tokio::process::Command::new(&self.bin)
+                    .args(&watch_args)
+                    .stdout(std::process::Stdio::piped())
+                    .stderr(std::process::Stdio::null())
+                    .spawn()
+                    .map_err(|e| SdkError::Other(anyhow::anyhow!("spawn logosctl watch: {e}")))?;
+                tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+                let started = tokio::time::Instant::now();
+                let result = self
+                    .call_output(
+                        "uploadUrl",
+                        &[
+                            file.to_string_lossy().into_owned(),
+                            "65536".into(),
+                            "true".into(),
+                        ],
+                    )
+                    .await;
+                let session = match result {
+                    Ok(output) => match Self::parse_upload_result(&output) {
+                        Ok(session) => session,
+                        Err(e) => {
+                            let _ = watcher.kill().await;
+                            return Err(e);
+                        }
+                    },
+                    Err(e) => {
+                        let _ = watcher.kill().await;
+                        return Err(e);
+                    }
+                };
+                let stdout = watcher.stdout.take().expect("piped stdout");
+                let mut lines = tokio::io::BufReader::new(stdout).lines();
+                let wait = async {
+                    while let Some(line) = lines.next_line().await? {
+                        if let Some(payload) =
+                            Self::matching_event(&line, "storageUploadDone", &session)?
+                        {
+                            require_success_event("storageUploadDone", &payload)
+                                .map_err(|e| anyhow::anyhow!(e.to_string()))?;
+                            let cid = payload
+                                .get("cid")
+                                .and_then(|v| v.as_str())
+                                .filter(|s| !s.is_empty())
+                                .ok_or_else(|| anyhow::anyhow!("upload event has no CID"))?;
+                            return Ok::<_, anyhow::Error>(cid.to_owned());
+                        }
+                    }
+                    anyhow::bail!("storage watch ended before upload completion")
+                };
+                let got = with_timeout(
+                    self.timeout.saturating_sub(started.elapsed()),
+                    &format!("storage upload event for session {session}"),
+                    wait,
+                )
+                .await;
+                let _ = watcher.kill().await;
+                got
+            }
+            .await
+            {
+                Ok(cid) => {
                     let size = tokio::fs::metadata(file)
                         .await
                         .map(|m| m.len())
@@ -243,23 +366,92 @@ impl StorageBackend for LogoscoreStorage {
     }
 
     async fn get(&self, cid: &str, dest: &Path) -> Result<(), SdkError> {
-        let args = self.command_for_get(cid, dest);
         let delays = backoff_delays(self.max_retries);
         let mut last: Option<SdkError> = None;
         for (attempt, delay) in delays.into_iter().enumerate() {
             if attempt > 0 {
                 tokio::time::sleep(delay).await;
             }
-            match self.run(&args).await {
-                Ok(_) => {
-                    if tokio::fs::metadata(dest).await.is_ok() {
-                        return Ok(());
+            match async {
+                self.ensure_running().await?;
+                let mut watch_args = self.base_args();
+                watch_args.extend(["watch".into(), "storage_module".into()]);
+                let mut watcher = tokio::process::Command::new(&self.bin)
+                    .args(&watch_args)
+                    .stdout(std::process::Stdio::piped())
+                    .stderr(std::process::Stdio::null())
+                    .spawn()
+                    .map_err(|e| SdkError::Other(anyhow::anyhow!("spawn logosctl watch: {e}")))?;
+                tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+                let started = tokio::time::Instant::now();
+                let result = self
+                    .call(
+                        "downloadToUrl",
+                        &[
+                            cid.to_owned(),
+                            dest.to_string_lossy().into_owned(),
+                            "false".into(),
+                            "65536".into(),
+                            "false".into(),
+                            "true".into(),
+                        ],
+                    )
+                    .await;
+                let session = match result {
+                    Ok(v) => {
+                        if v.get("success").and_then(|v| v.as_bool()) == Some(false) {
+                            let _ = watcher.kill().await;
+                            return Err(SdkError::Other(anyhow::anyhow!(
+                                "downloadToUrl rejected: {v}"
+                            )));
+                        }
+                        v.get("value")
+                            .and_then(|v| v.as_str())
+                            .map(str::to_owned)
+                            .ok_or_else(|| {
+                                SdkError::Other(anyhow::anyhow!(
+                                    "downloadToUrl response has no session ID"
+                                ))
+                            })?
                     }
-                    last = Some(SdkError::Other(anyhow::anyhow!(
-                        "logoscore reported success but {} is missing",
+                    Err(e) => {
+                        let _ = watcher.kill().await;
+                        return Err(e);
+                    }
+                };
+                let stdout = watcher.stdout.take().expect("piped stdout");
+                let mut lines = tokio::io::BufReader::new(stdout).lines();
+                let wait = async {
+                    while let Some(line) = lines.next_line().await? {
+                        if let Some(payload) =
+                            Self::matching_event(&line, "storageDownloadDone", &session)?
+                        {
+                            require_success_event("storageDownloadDone", &payload)
+                                .map_err(|e| anyhow::anyhow!(e.to_string()))?;
+                            return Ok::<_, anyhow::Error>(());
+                        }
+                    }
+                    anyhow::bail!("storage watch ended before download completion")
+                };
+                let result = with_timeout(
+                    self.timeout.saturating_sub(started.elapsed()),
+                    &format!("storage download event for session {session}"),
+                    wait,
+                )
+                .await;
+                let _ = watcher.kill().await;
+                result?;
+                if tokio::fs::metadata(dest).await.is_err() {
+                    return Err(SdkError::Other(anyhow::anyhow!(
+                        "storage reported download success but {} is missing",
                         dest.display()
                     )));
                 }
+                Ok(())
+            }
+            .await
+            {
+                Ok(()) => return Ok(()),
                 Err(e) => {
                     tracing::warn!(attempt, error = %e, "storage download attempt failed");
                     last = Some(e);
@@ -299,35 +491,89 @@ mod tests {
     }
 
     #[test]
-    fn logoscore_builds_expected_command() {
-        let st = LogoscoreStorage::new(
-            PathBuf::from("/usr/bin/logoscore"),
-            PathBuf::from("/opt/logos/modules"),
-            PathBuf::from("/etc/storage.json"),
+    fn logosctl_builds_expected_argv() {
+        let st = LogosctlStorage::new(PathBuf::from("logosctl"), PathBuf::from("/tmp/session"));
+        let args = st.command_for_call(
+            "uploadUrl",
+            &["/tmp/x.pbf".into(), "65536".into(), "true".into()],
         );
-        let args = st.command_for_put(Path::new("/tmp/x.pbf"), "germany");
-        let joined = args.join(" ");
-        assert!(joined.contains("--load-modules storage_module"));
-        assert!(joined.contains("storage_module.init(@/etc/storage.json)"));
-        assert!(joined.contains("storage_module.start()"));
-        assert!(joined.contains("storage_module.uploadFile(/tmp/x.pbf)"));
-        assert!(joined.contains("storage_module.stop()"));
-        let args = st.command_for_get("bafk123", Path::new("/tmp/out.pbf"));
-        assert!(args
-            .join(" ")
-            .contains("storage_module.downloadFile(\"bafk123\", /tmp/out.pbf)"));
+        assert_eq!(
+            args,
+            [
+                "--config-dir",
+                "/tmp/session",
+                "call",
+                "storage_module",
+                "uploadUrl",
+                "/tmp/x.pbf",
+                "65536",
+                "true"
+            ]
+        );
     }
 
     #[test]
-    fn logoscore_parses_cid_from_output() {
-        let out = "{\"success\":true,\"value\":\"session-1\"}\n\
-                   {\"success\":true,\"value\":\"bafkqacidonewcbyaaaa\"}\n\
-                   {\"success\":true,\"value\":null}";
+    fn logosctl_parses_nested_results_and_upload_session() {
+        let response = r#"{"method":"uploadUrl","module":"storage_module","result":{"error":null,"success":true,"value":"session-9"},"status":"ok"}"#;
         assert_eq!(
-            LogoscoreStorage::parse_cid_output(out).unwrap(),
-            "bafkqacidonewcbyaaaa"
+            LogosctlStorage::parse_upload_result(response).unwrap(),
+            "session-9"
         );
-        let bad = "{\"success\":false,\"error\":\"boom\"}";
-        assert!(LogoscoreStorage::parse_cid_output(bad).is_err());
+        let fail = r#"{"method":"uploadUrl","module":"storage_module","result":{"error":"disk full","success":false,"value":null},"status":"ok"}"#;
+        assert!(LogosctlStorage::parse_upload_result(fail).is_err());
+        assert!(
+            LogosctlStorage::parse_call_result(r#"{"status":"error","message":"no"}"#).is_err()
+        );
+    }
+
+    #[test]
+    fn event_matching_correlates_session_and_failure() {
+        let events = concat!(
+            r#"{"data":{"arg0":"{\"cid\":\"wrong\",\"sessionId\":\"1\",\"success\":true}"},"event":"storageUploadDone"}"#,
+            "\n",
+            r#"{"data":{"arg0":"{\"cid\":\"right\",\"sessionId\":\"2\",\"success\":true}"},"event":"storageUploadDone"}"#
+        );
+        let got = LogosctlStorage::matching_event(events, "storageUploadDone", "2")
+            .unwrap()
+            .unwrap();
+        assert_eq!(got["cid"], "right");
+        let failed = r#"{"data":{"arg0":"{\"error\":\"offline\",\"sessionId\":\"2\",\"success\":false}"},"event":"storageDownloadDone"}"#;
+        let event = LogosctlStorage::matching_event(failed, "storageDownloadDone", "2")
+            .unwrap()
+            .unwrap();
+        assert_eq!(event["success"], false);
+        assert!(require_success_event("storageDownloadDone", &event).is_err());
+    }
+
+    #[tokio::test]
+    async fn event_wait_timeout_is_bounded() {
+        let result = with_timeout(
+            std::time::Duration::from_millis(1),
+            "storage event",
+            std::future::pending::<Result<(), anyhow::Error>>(),
+        )
+        .await;
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("timed out waiting"));
+    }
+
+    #[tokio::test]
+    #[ignore = "requires a running Logos Storage node; set LOGOSCTL_BIN, LOGOSCTL_CONFIG_DIR, and STORAGE_ROUNDTRIP_FILE"]
+    async fn live_logosctl_roundtrip() {
+        let bin = PathBuf::from(std::env::var_os("LOGOSCTL_BIN").unwrap());
+        let config = PathBuf::from(std::env::var_os("LOGOSCTL_CONFIG_DIR").unwrap());
+        let src = PathBuf::from(std::env::var_os("STORAGE_ROUNDTRIP_FILE").unwrap());
+        let dest = PathBuf::from(std::env::var_os("STORAGE_ROUNDTRIP_DEST").unwrap());
+        let storage = LogosctlStorage::new(bin, config);
+        let receipt = storage.put(&src, "roundtrip").await.unwrap();
+        assert_eq!(receipt.size, tokio::fs::metadata(&src).await.unwrap().len());
+        storage.get(&receipt.cid, &dest).await.unwrap();
+        assert_eq!(
+            tokio::fs::read(src).await.unwrap(),
+            tokio::fs::read(dest).await.unwrap()
+        );
+        println!("roundtrip cid={} size={}", receipt.cid, receipt.size);
     }
 }
