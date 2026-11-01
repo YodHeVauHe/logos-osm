@@ -5,7 +5,7 @@
 
 use clap::{Parser, Subcommand};
 use osm_sdk::registry::{LezWalletRegistryClient, MockRegistryClient, RegistryClient};
-use osm_sdk::storage::{InMemoryStorage, LogoscoreStorage, StorageBackend};
+use osm_sdk::storage::{InMemoryStorage, LogosctlStorage, StorageBackend};
 use osm_sdk::{HostOpts, OsmSdk, SdkError};
 use std::path::PathBuf;
 
@@ -33,7 +33,7 @@ struct Cli {
     #[arg(long, global = true, env = "OSM_RPC_URL")]
     rpc_url: Option<String>,
 
-    /// Use the in-memory storage double (dev/testing — no logoscore).
+    /// Use the in-memory storage double (dev/testing — no logosctl).
     #[arg(long, global = true)]
     storage_memory: bool,
 
@@ -108,9 +108,8 @@ struct Config {
     rpc_url: Option<String>,
     wallet_home: Option<PathBuf>,
     signer_account_id: Option<String>,
-    logoscore_bin: Option<PathBuf>,
-    modules_dir: Option<PathBuf>,
-    storage_config: Option<PathBuf>,
+    logosctl_bin: Option<PathBuf>,
+    storage_config_dir: Option<PathBuf>,
 }
 
 fn load_config(path: Option<&PathBuf>) -> Config {
@@ -191,18 +190,21 @@ async fn run(cli: Cli) -> i32 {
         Box::new(InMemoryStorage::new())
     } else {
         let bin = cfg
-            .logoscore_bin
+            .logosctl_bin
             .clone()
-            .unwrap_or_else(|| PathBuf::from("logoscore"));
-        let modules = cfg
-            .modules_dir
+            .or_else(|| std::env::var_os("LOGOSCTL_BIN").map(PathBuf::from))
+            .unwrap_or_else(|| PathBuf::from("logosctl"));
+        let config_dir = cfg
+            .storage_config_dir
             .clone()
-            .unwrap_or_else(|| PathBuf::from("./modules"));
-        let scfg = cfg
-            .storage_config
-            .clone()
-            .unwrap_or_else(|| PathBuf::from("storage.json"));
-        Box::new(LogoscoreStorage::new(bin, modules, scfg))
+            .or_else(|| std::env::var_os("LOGOSCTL_CONFIG_DIR").map(PathBuf::from))
+            .unwrap_or_else(|| {
+                std::env::var_os("HOME")
+                    .map(PathBuf::from)
+                    .unwrap_or_default()
+                    .join(".logosctl")
+            });
+        Box::new(LogosctlStorage::new(bin, config_dir))
     };
 
     let registry: Box<dyn RegistryClient> = if cli.storage_memory {

@@ -11,7 +11,7 @@
 #![cfg(all(test, feature = "e2e"))]
 
 use osm_sdk::registry::{LezWalletRegistryClient, MockRegistryClient};
-use osm_sdk::storage::{InMemoryStorage, LogoscoreStorage};
+use osm_sdk::storage::{InMemoryStorage, LogosctlStorage};
 use osm_sdk::{HostOpts, OsmSdk};
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -208,10 +208,9 @@ async fn localnet_host_query_download() {
     }
 
     let registry = localnet_registry();
-    let storage = LogoscoreStorage::new(
-        required_file("LOGOSCORE_BIN"),
-        required_dir("STORAGE_MODULES_DIR"),
-        required_file("OSM_STORAGE_CONFIG"),
+    let storage = LogosctlStorage::new(
+        required_file("LOGOSCTL_BIN"),
+        required_dir("LOGOSCTL_CONFIG_DIR"),
     );
     let mut sdk = OsmSdk::new(Box::new(storage), Box::new(registry));
     sdk.registry
