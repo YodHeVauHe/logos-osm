@@ -76,6 +76,12 @@ enum Cmd {
         #[arg(long)]
         md5: Option<String>,
     },
+    /// Verify and store a local extract without registering it yet.
+    Prepare { region: String, file: PathBuf },
+    /// Register an entry JSON produced by `prepare` after its CID is verified.
+    RegisterEntry { entry_json: String },
+    /// Fetch an object directly by Storage CID (without requiring registry state).
+    FetchCid { cid: String, dest: PathBuf },
     /// Query the on-chain registry.
     Lookup {
         #[arg(long, group = "by")]
@@ -361,6 +367,48 @@ async fn run(cli: Cli) -> i32 {
                 Err(e) => fail(&e),
             }
         }
+        Cmd::Prepare {
+            ref region,
+            ref file,
+        } => {
+            match sdk
+                .prepare_local(region, file, HostOpts::default(), None)
+                .await
+            {
+                Ok(entry) => {
+                    print_json(&entry);
+                    0
+                }
+                Err(e) => fail(&e),
+            }
+        }
+        Cmd::RegisterEntry { ref entry_json } => {
+            let signer = match signer_from(&cli, &cfg) {
+                Ok(s) => s,
+                Err(e) => return fail(&e),
+            };
+            let entry = match serde_json::from_str(entry_json) {
+                Ok(e) => e,
+                Err(e) => {
+                    eprintln!("invalid entry JSON: {e}");
+                    return 1;
+                }
+            };
+            match sdk.register_prepared(entry, signer).await {
+                Ok(e) => {
+                    print_json(&e);
+                    0
+                }
+                Err(e) => fail(&e),
+            }
+        }
+        Cmd::FetchCid { ref cid, ref dest } => match sdk.storage.get(cid, dest).await {
+            Ok(()) => {
+                println!("fetched {cid} to {}", dest.display());
+                0
+            }
+            Err(e) => fail(&e),
+        },
         Cmd::Lookup {
             region,
             parent,

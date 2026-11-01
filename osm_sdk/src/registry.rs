@@ -133,6 +133,7 @@ impl LezWalletRegistryClient {
 
     async fn run(cmd: &mut tokio::process::Command) -> Result<(String, String, bool), SdkError> {
         let out = cmd
+            .stdin(Stdio::inherit())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .output()
@@ -181,6 +182,11 @@ impl RegistryClient for LezWalletRegistryClient {
             return Err(SdkError::Other(anyhow::anyhow!(
                 "init-registry failed: {stdout}{stderr}"
             )));
+        }
+        for line in stdout.lines().chain(stderr.lines()) {
+            if line.contains("Transaction:") {
+                eprintln!("{line}");
+            }
         }
         Ok(())
     }
@@ -231,6 +237,14 @@ impl RegistryClient for LezWalletRegistryClient {
             ]);
         }
         let (stdout, stderr, ok) = Self::run(&mut cmd).await?;
+        for line in stdout.lines().chain(stderr.lines()) {
+            if line.contains("Transaction:")
+                || line.contains("Submitted:")
+                || line.starts_with("fee ")
+            {
+                eprintln!("{line}");
+            }
+        }
         if !ok {
             return Err(SdkError::Other(anyhow::anyhow!(
                 "register failed: {stdout}{stderr}"
