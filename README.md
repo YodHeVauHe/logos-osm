@@ -52,7 +52,7 @@ Geofabrik supplies the snapshot index, published MD5 values, and fallback downlo
 - Nix with flakes enabled for Basecamp module and app packages.
 - RISC Zero `rzup` Rust 1.97.0 / C++ 2024.1.5 toolchains for `make build`; Docker is not used by this build. The build is toolchain pinned but not Docker deterministic, and host dependency resolution may change without lockfiles.
 - A LEZ v0.3.1 `wallet` binary and wallet home for deployment and transactions; the SDK CLI uses `LEE_WALLET_HOME_DIR` and `OSM_RPC_URL`.
-- `logoscore` and a built `storage_module` for production Storage operations. The in-memory mode is for development and tests.
+- `logosctl` 0.3.2 with the current `storage_module` API for production Storage operations. The in-memory mode is for development and tests.
 
 ## Build and test
 
@@ -69,7 +69,7 @@ RUSTUP_TOOLCHAIN=1.98.1 cargo test -p osm_e2e --features e2e
 
 Nix builds are not claimed here; run the package builds if Nix is installed.
 
-Run the e2e suite with `RUSTUP_TOOLCHAIN=1.98.1 cargo test -p osm_e2e --features e2e`. `localnet_registry_host_query` uses a real sequencer only when `LEZ_LOCALNET=1` and the LEZ v0.3.1 registry CLI, deployed program account, wallet home, and fee payer are configured. The real Storage roundtrip remains unverified because the `LogoscoreStorage` adapter targets the legacy `uploadFile`/`downloadFile`/`nameObject` API and the current Storage module exposes `uploadUrl`/`downloadToUrl`.
+Run the e2e suite with `RUSTUP_TOOLCHAIN=1.98.1 cargo test -p osm_e2e --features e2e`. `localnet_registry_host_query` uses a real sequencer only when `LEZ_LOCALNET=1` and the LEZ v0.3.1 registry CLI, deployed program account, wallet home, and fee payer are configured. A real Storage upload-download roundtrip now passes through `LogosctlStorage`; evidence covers one local node on `logos.test`, not a multi-node network transfer.
 
 ## Usage
 
@@ -149,7 +149,7 @@ Status is based on repository artifacts and commands run locally. A checked impl
 | LEZ v0.3.1 instruction/account IDL generated and tracked | `make idl` regenerates the Borsh plan/apply contract; CI result pending | [`idl/osm-registry.idl.json`](idl/osm-registry.idl.json) |
 | In-memory e2e | Test is available; workspace tests pass. Dedicated feature-gated e2e command not run in this docs pass | [`tests/e2e`](tests/e2e) |
 | Real LEZ v0.3.1 sequencer e2e and cycle capture | Local run passes; cycle sample recorded | [CI workflow](.github/workflows/ci.yml), [`docs/cycles.md`](docs/cycles.md) |
-| Logos Storage host-query-download roundtrip | Pending adapter compatibility work and verification | [`osm_sdk/src/storage.rs`](osm_sdk/src/storage.rs), current API note above |
+| Logos Storage host-query-download roundtrip | Storage upload-download passed against one local `storage_module` 3.0.2 node via logosctl 0.3.2; 3,507,206-byte Andorra PBF reproduced with matching MD5 and SHA-256. Registry query and multi-node transfer are not part of this result. | [`osm_sdk/src/storage.rs`](osm_sdk/src/storage.rs), [SDK storage configuration](docs/sdk.md) |
 | Logos testnet v0.3 practice deployment (not 0.4) | Deployed; init and one-entry register/read-back smoke test passed on the public testnet | [Program IDs](#testnet-v03-practice-deployment-not-the-04-deployment-lp-0018-requires) |
 | Logos testnet 0.4 deployment | Pending operator action | No testnet 0.4 program header account ID or registry PDA recorded |
 | Module catalog publication | Pending | Procedure in [`docs/catalog.md`](docs/catalog.md); no catalog URL recorded |
@@ -161,7 +161,7 @@ The criterion-by-criterion assessment is in [`docs/furps.md`](docs/furps.md). It
 
 ## Limitations and owner actions
 
-- The complete real Storage roundtrip is unverified until `LogoscoreStorage` is aligned with the current Storage module API.
+- Storage roundtrip evidence is a single-node local upload-download only; no multi-node transfer or registry query was exercised in that roundtrip.
 - GitHub Actions has not run for this branch. Nix flake evaluation succeeds, but package builds and interactive Basecamp use are unverified here.
 - The testnet v0.3 practice deployment is complete. The required testnet 0.4 deployment and registry initialization remain pending.
 - Real Geofabrik snapshots hosted in Logos Storage, at least 15 covered countries and 25 verified entries, catalog releases, and five independent consumers (including three Basecamp UI apps) require owner evidence.

@@ -34,7 +34,7 @@ The integration path most Basecamp consumers take:
 
 ```rust
 use osm_sdk::registry::{LezWalletRegistryClient, MockRegistryClient, RegistryClient};
-use osm_sdk::storage::InMemoryStorage;                      // or LogoscoreStorage
+use osm_sdk::storage::InMemoryStorage;                      // or LogosctlStorage
 use osm_sdk::OsmSdk;
 
 #[tokio::main]
@@ -129,9 +129,23 @@ for u in sdk.check_updates().await? {
 
 | Concern | Production | Tests / dev |
 |---|---|---|
-| Storage | `LogoscoreStorage` (drives the headless `logoscore` binary with `storage_module`) | `InMemoryStorage` |
+| Storage | `LogosctlStorage` (calls the current `storage_module` API through `logosctl`) | `InMemoryStorage` |
 | Registry client | `LezWalletRegistryClient` (LEZ v0.3.1 wallet/RPC CLI for transactions and public account reads) | `MockRegistryClient` (feature `test-util`) |
 | Geofabrik | real service | `set_url_rewrite(base)` → wiremock or a mirror |
+
+Configure the production storage backend with `logosctl_bin` and
+`storage_config_dir` in `osm.toml`, or `LOGOSCTL_BIN` and
+`LOGOSCTL_CONFIG_DIR`. `LogosctlStorage` talks to a running daemon through the
+current `storage_module` API (`uploadUrl` and `downloadToUrl`) and waits for
+matching completion events. The ignored live test
+`storage::tests::live_logosctl_roundtrip` can be run with those environment
+variables plus `STORAGE_ROUNDTRIP_FILE` and `STORAGE_ROUNDTRIP_DEST`. A local
+roundtrip was verified with logosctl 0.3.2 and storage_module 3.0.2 (libstorage
+v0.5.3): the 3,507,206-byte Andorra extract returned CID
+`zDvZRwzkxTZxVLVzFakT2w2vFqF6AXUgBQtWiBQinTqJsb3NyLrU`; source and downloaded
+files had MD5 `fb146ceabccea8a2c9e2bf20618d0bc5` and SHA-256
+`7f4f43ac2c29226d61b2d043d5c6a998d3112468717203b838a16b504108498c`. This
+exercises one local node and does not demonstrate transfer between nodes.
 
 Retries: downloads and storage uploads retry with exponential back-off
 (1s, 2s, 4s … capped 30s) and surface `SdkError::RetriesExhausted` with the

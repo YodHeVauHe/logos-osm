@@ -14,7 +14,7 @@ This assessment follows the λPrize [solution template](https://github.com/logos
 | Consumer SDK/module | Rust API and Basecamp module source expose consumer operations | `docs/sdk.md`, `osm-module`; Nix build and catalog publication remain unverified |
 | Basecamp app and consumer example | App source and independent example are present | `osm-app`, `examples/basecamp-consumer`; package build/runtime remains unverified |
 
-**Storage limitation.** `LogoscoreStorage` calls the legacy `uploadFile`, `downloadFile`, and `nameObject` API. The current Storage module exposes `uploadUrl` and `downloadToUrl`. The complete Storage host-query-download roundtrip therefore has not been verified. The in-memory e2e path does not establish Storage interoperability.
+**Storage evidence.** `LogosctlStorage` calls the current `uploadUrl` and `downloadToUrl` methods and waits for matching completion events. A 3,507,206-byte Andorra PBF upload-download passed on one local node (logosctl 0.3.2, storage_module 3.0.2, libstorage v0.5.3) with matching MD5 and SHA-256. This does not establish a multi-node transfer or include an on-chain registry query. The historical `uploadFile` adapter was incompatible with the current module API; the in-memory e2e path does not establish Storage interoperability.
 
 **Scope.** The deliverable distributes snapshots. Live OSM sync, map rendering, geocoding, routing, navigation, and custom regions are outside LP-0018 scope. Public testnet deployment is pending.
 
