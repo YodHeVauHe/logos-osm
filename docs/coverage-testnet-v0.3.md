@@ -34,7 +34,7 @@ the Storage node.
 ## Regions
 
 <!-- regions:begin -->
-**22 regions across 14 countries** (from the registry read-back).
+**25 regions across 17 countries** (from the registry read-back).
 
 | Region | Country | Size | Geofabrik MD5 (= on-chain checksum) | Storage CID | Snapshot | Block | Tx |
 |---|---|---|---|---|---|---|---|
@@ -45,6 +45,7 @@ the Storage node.
 | `china/shandong` | China | 71.9 MB | `936804b0029f858792fd074a480663e0` | `zDvZRwzm2Pfy2E6VSL3coKQT6b3jd2Qs1NqB8nnXa2ZpMc1bZdix` | 261031 | 73094 | [`54521b5e4cc9…`](https://explorer.testnet.lez.logos.co/transaction/54521b5e4cc9aeb21ee29548c8b41f1b1c3b1ac3e59a46fbca15742df8450883) |
 | `china/sichuan` | China | 108.0 MB | `33c8c07feaeb53d0a523380143e8a54f` | `zDvZRwzmBQPWpmmLNVUYizuWY8CANm19gzNBVVRwRM1R23nBagHQ` | 261031 | 73100 | [`f52ec64cc67d…`](https://explorer.testnet.lez.logos.co/transaction/f52ec64cc67dcef3a53fbdd63a5a5e2a2ec667863f30cd8802f6728f67acf24d) |
 | `china/zhejiang` | China | 91.2 MB | `bd4091f25fbb2db67113844e3d00bb68` | `zDvZRwzm11a2mRKe6pEShG3Yq8UxXXhFyaXGKMwSYs4fJtbkb3Rf` | 261031 | 73099 | [`046adc936858…`](https://explorer.testnet.lez.logos.co/transaction/046adc93685858fc17789a3651eadc6152ca8480146671c4a0bae3e7ad275586) |
+| `colombia` | Colombia | 333.6 MB | `acadedb2675bdd32552439c98ce8372b` | `zDvZRwzm2Y8igkEiXhdwxKMhF5hfb9wmQsZjrc9i4x2D9h932qYE` | 261031 | 73265 | [`4b8f5df7844e…`](https://explorer.testnet.lez.logos.co/transaction/4b8f5df7844eb22123c09b99bf68c96dc6db00c952d6f3d985b3ef538ed7e6eb) |
 | `egypt` | Egypt | 179.0 MB | `a75319d9b4d57de7613c62c7b9e1d9f1` | `zDvZRwzm4JnHgjkduxDD4EZ4gjoCPS7d6cJ87MjYXkaXznj6DFDY` | 261031 | 73135 | [`3e0d3c66c16d…`](https://explorer.testnet.lez.logos.co/transaction/3e0d3c66c16da74c8892cff651af43169f7d666d2e4fe0dc0b1bc5dcf3c092c8) |
 | `ethiopia` | Ethiopia | 140.1 MB | `05d69181c2ee748a37d6d5641982bd0c` | `zDvZRwzm5LREspW9YAxns9wbRtgn3qZqB981vya6kZygozdw2uyH` | 261031 | 73125 | [`97b4ec6f09ba…`](https://explorer.testnet.lez.logos.co/transaction/97b4ec6f09ba5e24c1f0b413920a7b21bd7d58b6f102767a2214a3f0e4ec3f57) |
 | `hungary` | Hungary | 328.2 MB | `4df6e68bd5a90d97f9f1b28f74a83a4c` | `zDvZRwzmDLgUVGoyHZhZ6DfAji1v1d2aYkKX2Sk9YXfN3GnytyVy` | 261031 | 73233 | [`0a28b2564929…`](https://explorer.testnet.lez.logos.co/transaction/0a28b25649298357d0fb6b95b28102c418cb63a5ac9c28b22cebcfd972ccecd7) |
@@ -57,6 +58,8 @@ the Storage node.
 | `malaysia` | Malaysia | 252.6 MB | `da62ff73517c022dd8b8da32dd9153f5` | `zDvZRwzkyMiYmhNodDiDBCH6AUYDgTRzu8nDtfksfANndCZ5539w` | 261031 | 73173 | [`76f5535b86e5…`](https://explorer.testnet.lez.logos.co/transaction/76f5535b86e5cc385af7a5f888659d6e385218a1ec1a5f6e130dba0b7546e4f1) |
 | `morocco` | Morocco | 244.3 MB | `b4a6bf3fe5bfa006f3e5d152f7292b6f` | `zDvZRwzkzw66rhXUHg7SQLtYgocijZgP483Tv4QmVihZUt5Yycw1` | 261031 | 73142 | [`a6e511d3fd10…`](https://explorer.testnet.lez.logos.co/transaction/a6e511d3fd102e9c2ff42a66b1e5c644b0a0f3ee1eb0cdc195e9f2381c6ef252) |
 | `pakistan` | Pakistan | 157.6 MB | `c6357e9b03e805cada430db19b9047e5` | `zDvZRwzmA8KcPfkuoaQiibjArwjnPrwUUwRjzXqS4EikDw2hTcqm` | 261031 | 73146 | [`03de19923403…`](https://explorer.testnet.lez.logos.co/transaction/03de199234038a090c1c3b50a30f23415323060ca072bf16c4a9c1d87c3f5fab) |
+| `peru` | Peru | 257.2 MB | `95d7888520938bb3df5698617f25cdb3` | `zDvZRwzm53HDcgrv3DQopmvbYJNnvnvjuUbXpgg6asSdf8GyMdtA` | 261031 | 73260 | [`c86f7e190bcb…`](https://explorer.testnet.lez.logos.co/transaction/c86f7e190bcb1c0d221efbd2fbaf3ed4af7a0be3a7c34e6295d178f341daf004) |
+| `romania` | Romania | 332.5 MB | `c78d3053dd01ddf3dfd3b6b13aa5d423` | `zDvZRwzkyFeXPkX7WEEtgZrewy91TzNb3LZBSHyZvdH7kuWsgBoU` | 261031 | 73249 | [`3e7a46be96fd…`](https://explorer.testnet.lez.logos.co/transaction/3e7a46be96fd03bfff8b80492e8e3a58e7ba3c87675eff4e26fc4cae7034e2a3) |
 | `south-korea` | South Korea | 290.6 MB | `12a7607c7a2dde1014406bbb45d1688c` | `zDvZRwzm4xT6v3w2z971Cenvk8X1CDaX9KXS7ZuKDy1LuERZWgCU` | 261031 | 73179 | [`7b2d951f626e…`](https://explorer.testnet.lez.logos.co/transaction/7b2d951f626edb48f353f39fa02c7dc48efbdc86a89c146bf9580278cb81bb0a) |
 | `thailand` | Thailand | 329.6 MB | `fbd9607f6d6ff4dca5a69d705183b82d` | `zDvZRwzkwVVR423XAJGGAJ9QKo2gsrEsMXU2jBU9SsBtyoEypVdV` | 261031 | 73185 | [`b8df8ab5541f…`](https://explorer.testnet.lez.logos.co/transaction/b8df8ab5541f5cf427d4503ba3330372f23661dad55f8f8d97c561dfd0f83d45) |
 | `vietnam` | Vietnam | 332.0 MB | `0ddac22bd1f70f006ba107930da807ef` | `zDvZRwzm2vs5TNhkBsd57frByUJXFDFDaqQmyvpCjVaPNFb5r9X2` | 261031 | 73216 | [`901f7a334646…`](https://explorer.testnet.lez.logos.co/transaction/901f7a334646481b87ea2fce5bc4b9d7416750595dfb27cb9882f3343c1c54a5) |
