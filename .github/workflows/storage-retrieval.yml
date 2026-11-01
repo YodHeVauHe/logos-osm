@@ -49,7 +49,7 @@ jobs:
         run: |
           only=()
           for r in ${{ github.event.inputs.regions || 'china/henan kenya' }}; do only+=(--only "$r"); done
-          tools/coverage.sh verify "${only[@]}" --timeout 1200 --work-dir "$RUNNER_TEMP/verify" \
+          tools/coverage.sh verify "${only[@]}" --timeout 600 --work-dir "$RUNNER_TEMP/verify" \
             --control-cid westphalia=zDvZRwzkzrrYB6sS1rRpRLt4gBhc1pWoyTSjkfszfmj1seaYYLCZ \
             --json-out "$RUNNER_TEMP/verify.json" | tee "$RUNNER_TEMP/verify.md"
       - name: Report
