@@ -2,7 +2,7 @@
 
 **Submitted by:** [YodHeVauHe](https://github.com/YodHeVauHe) · **Prize:** [LP-0018](docs/LP-0018.md) · **License:** [MIT](LICENSE-MIT) OR [Apache-2.0](LICENSE-APACHE)
 
-[![CI workflow badge](https://github.com/YodHeVauHe/logos-osm/actions/workflows/ci.yml/badge.svg)](https://github.com/YodHeVauHe/logos-osm/actions/workflows/ci.yml) · **Branch evidence:** local Rust and IDL checks pass; GitHub Actions has not run for this branch. A testnet v0.3 practice deployment is recorded under [Program IDs](#program-ids). The testnet 0.4 deployment, catalog publication, and adoption evidence are pending owner actions.
+[![CI workflow badge](https://github.com/YodHeVauHe/logos-osm/actions/workflows/ci.yml/badge.svg)](https://github.com/YodHeVauHe/logos-osm/actions/workflows/ci.yml) · **CI evidence:** GitHub Actions is green on `main` ([run 41095317888](https://github.com/YodHeVauHe/logos-osm/actions/runs/41095317888): Rust on Ubuntu and Windows, LEZ v0.3.1 chain e2e, and Nix module/app builds). A testnet v0.3 practice deployment is recorded under [Program IDs](#program-ids). The testnet 0.4 deployment, catalog publication, and adoption evidence are pending owner actions.
 
 `logos-osm` provides a registry and tools for distributing Geofabrik OpenStreetMap PBF snapshots through Logos. The registry guest targets LEZ v0.3.1's plan/apply API and stores its Borsh registry in a public PDA shard owned by the deployed program account. The repository also includes a Rust SDK, CLI, C FFI, Basecamp core module, and QML app. A practice deployment on public testnet v0.3 is recorded below. No testnet 0.4 deployment, catalog release, or ecosystem adoption is claimed.
 
@@ -138,17 +138,17 @@ The closed, non-overlapping set contains 72 entries: 48 country-level extracts a
 
 ## Success Criteria Checklist
 
-Status is based on repository artifacts and commands run locally. A checked implementation item does not imply a successful GitHub Actions run or public deployment.
+Status is based on repository artifacts, local commands, and the green `main` CI run ([run 41095317888](https://github.com/YodHeVauHe/logos-osm/actions/runs/41095317888)). A checked implementation item does not imply a public testnet 0.4 deployment.
 
 | Requirement | Status | Evidence |
 |---|---|---|
 | LEZ v0.3.1 plan/apply registry with required fields and batch registration | Guest host tests, workspace tests, and local sequencer e2e pass | [`methods/guest`](methods/guest), [`osm_registry_core`](osm_registry_core) |
 | Frozen region discovery, checksums, hosting/import, queries and updates | Implemented; Rust workspace tests pass | [`regions.json`](regions.json), [`osm_sdk`](osm_sdk), [`osm_cli`](osm_cli) |
 | CLI and consumer SDK | Implemented; CLI help and workspace build verified | [`osm_cli`](osm_cli), [`docs/sdk.md`](docs/sdk.md) |
-| Basecamp core module, app, and independent consumer example | Source and flake outputs present; Nix build/runtime not verified here | [`osm-module`](osm-module), [`osm-app`](osm-app), [`examples/basecamp-consumer`](examples/basecamp-consumer), [`flake.nix`](flake.nix) |
-| LEZ v0.3.1 instruction/account IDL generated and tracked | `make idl` regenerates the Borsh plan/apply contract; CI result pending | [`idl/osm-registry.idl.json`](idl/osm-registry.idl.json) |
-| In-memory e2e | Test is available; workspace tests pass. Dedicated feature-gated e2e command not run in this docs pass | [`tests/e2e`](tests/e2e) |
-| Real LEZ v0.3.1 sequencer e2e and cycle capture | Local run passes; cycle sample recorded | [CI workflow](.github/workflows/ci.yml), [`docs/cycles.md`](docs/cycles.md) |
+| Basecamp core module, app, and independent consumer example | `osm` and `osm-app` build with `logos-module-builder` in the CI Nix job; repo-level [`module.json`](module.json) indexes the per-module `metadata.json` manifests. Interactive Basecamp use not yet verified | [`osm-module`](osm-module), [`osm-app`](osm-app), [`examples/basecamp-consumer`](examples/basecamp-consumer), [`flake.nix`](flake.nix) |
+| LEZ v0.3.1 instruction/account IDL generated and tracked | `make idl` regenerates the Borsh plan/apply contract; the CI IDL freshness check passes | [`idl/osm-registry.idl.json`](idl/osm-registry.idl.json) |
+| In-memory e2e | `cargo test -p osm_e2e --features e2e` passes in CI | [`tests/e2e`](tests/e2e) |
+| Real LEZ v0.3.1 sequencer e2e and cycle capture | Passes locally and in the CI chain job; cycle sample recorded | [CI workflow](.github/workflows/ci.yml), [`docs/cycles.md`](docs/cycles.md) |
 | Logos Storage host-query-download roundtrip | Pending adapter compatibility work and verification | [`osm_sdk/src/storage.rs`](osm_sdk/src/storage.rs), current API note above |
 | Logos testnet v0.3 practice deployment (not 0.4) | Deployed; init and one-entry register/read-back smoke test passed on the public testnet | [Program IDs](#testnet-v03-practice-deployment-not-the-04-deployment-lp-0018-requires) |
 | Logos testnet 0.4 deployment | Pending operator action | No testnet 0.4 program header account ID or registry PDA recorded |
@@ -157,15 +157,15 @@ Status is based on repository artifacts and commands run locally. A checked impl
 
 ## FURPS Self-Assessment
 
-The criterion-by-criterion assessment is in [`docs/furps.md`](docs/furps.md). It distinguishes implemented source, local test evidence, unrun CI, and operator-controlled deployment and adoption work.
+The criterion-by-criterion assessment is in [`docs/furps.md`](docs/furps.md). It distinguishes implemented source, local test evidence, CI results, and operator-controlled deployment and adoption work.
 
 ## Limitations and owner actions
 
 - The complete real Storage roundtrip is unverified until `LogoscoreStorage` is aligned with the current Storage module API.
-- GitHub Actions has not run for this branch. Nix flake evaluation succeeds, but package builds and interactive Basecamp use are unverified here.
+- GitHub Actions is green on `main` ([run 41095317888](https://github.com/YodHeVauHe/logos-osm/actions/runs/41095317888)), including the Nix builds of the `osm` module and `osm-app`. Interactive Basecamp use is not yet verified.
 - The testnet v0.3 practice deployment is complete. The required testnet 0.4 deployment and registry initialization remain pending.
 - Real Geofabrik snapshots hosted in Logos Storage, at least 15 covered countries and 25 verified entries, catalog releases, and five independent consumers (including three Basecamp UI apps) require owner evidence.
-- A solution PR to `logos-co/lambda-prize` with the FURPS assessment and adoption evidence remains to be opened.
+- A draft solution PR is open at [logos-co/lambda-prize#187](https://github.com/logos-co/lambda-prize/pull/187); it will be updated with the testnet 0.4 deployment and adoption evidence.
 
 ## Supporting materials
 
