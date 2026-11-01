@@ -10,7 +10,7 @@ This assessment follows the λPrize [solution template](https://github.com/logos
 | Host one or multiple regions | Fetch, verify Geofabrik MD5, store, then register; bulk registration uses one batch transaction | `osm_sdk/src/host.rs`; unit tests pass locally |
 | Import local extracts | Verify MD5 at import time, then store and register | `osm_sdk/src/host.rs`; unit tests pass locally |
 | Registry fields and queries | SPEL guest and shared types validate required fields; off-chain query by region, parent, and CID | `osm_registry_core`, `methods/guest`, `osm_sdk/src/registry.rs` |
-| Resolve and download | SDK resolves registry entries and selects hosted Storage or Geofabrik fallback paths | `osm_sdk/src/host.rs`; Storage production roundtrip is not verified |
+| Resolve and download | SDK resolves registry entries and selects hosted Storage or Geofabrik fallback paths | `osm_sdk/src/host.rs`; a single-node `LogosctlStorage` upload-download roundtrip is verified; a multi-node host-query-download roundtrip is not |
 | Consumer SDK/module | Rust API and Basecamp module source expose consumer operations | `docs/sdk.md`, `osm-module`; Nix build and catalog publication remain unverified |
 | Basecamp app and consumer example | App source and independent example are present | `osm-app`, `examples/basecamp-consumer`; package build/runtime remains unverified |
 
@@ -53,7 +53,7 @@ The registry is designed to fit below the LEZ 100 KiB account ceiling; the core 
 | Item | Evidence status | Remaining work |
 |---|---|---|
 | Logos testnet 0.4 | No deployment evidence or testnet Program ID recorded | Deploy, test, and record Program ID and registry PDA |
-| Logos Storage integration | Adapter targets legacy method names; current module API differs | Align adapter and verify a real host-query-download roundtrip |
+| Logos Storage integration | `LogosctlStorage` targets the current `storage_module` 3.0.2 API (`uploadUrl`/`downloadToUrl`) via logosctl 0.3.2; a real single-node local upload-download roundtrip passed with matching MD5 and SHA-256 | Verify a multi-node transfer and a registry-backed host-query-download roundtrip |
 | Module catalog | Procedure is documented; no catalog fork or URL recorded | Publish `osm` and `osm-app`, then record `logos-repo.json` URL |
 | Adoption | No external consumer or hosted coverage evidence recorded | Provide 15 covered countries, 25 checksum-verifiable entries, five independent consumers (including three Basecamp UI apps), and Linux/macOS use evidence |
 | λPrize submission | Draft solution PR open: [logos-co/lambda-prize#187](https://github.com/logos-co/lambda-prize/pull/187) | Update it with testnet 0.4 and adoption evidence, then mark ready |
