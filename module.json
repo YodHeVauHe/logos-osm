@@ -1,0 +1,39 @@
+{
+  "name": "logos-osm",
+  "version": "1.0.0",
+  "description": "OpenStreetMap distribution for Logos (LP-0018): an OSM registry Basecamp module (SDK), a Basecamp QML distribution app, and a minimal consumer module example.",
+  "license": "MIT OR Apache-2.0",
+  "repository": "https://github.com/YodHeVauHe/logos-osm",
+  "prize": "LP-0018",
+  "builder": "logos-module-builder",
+  "manifest_format": "metadata.json",
+  "modules": [
+    {
+      "name": "osm",
+      "type": "core",
+      "version": "1.0.0",
+      "path": "osm-module",
+      "manifest": "osm-module/metadata.json",
+      "flake_package": "osm-install",
+      "role": "OSM registry SDK/module consumed by other Basecamp apps and modules"
+    },
+    {
+      "name": "osm-app",
+      "type": "ui_qml",
+      "version": "1.0.0",
+      "path": "osm-app",
+      "manifest": "osm-app/metadata.json",
+      "flake_package": "osm-app-install",
+      "role": "Basecamp mini-app for OSM region discovery, hosting, import, and download"
+    },
+    {
+      "name": "osm_consumer_example",
+      "type": "core",
+      "version": "1.0.0",
+      "path": "examples/basecamp-consumer",
+      "manifest": "examples/basecamp-consumer/metadata.json",
+      "flake_package": "osm-consumer-example",
+      "role": "Minimal embedding example that depends on the osm module without the distribution app"
+    }
+  ]
+}

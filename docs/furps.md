@@ -33,18 +33,18 @@ This assessment follows the λPrize [solution template](https://github.com/logos
 - Geofabrik downloads and Storage uploads implement exponential retry delays and report exhausted retries.
 - Checksum mismatches fail before registration and remove partial files.
 - The in-memory tests cover the host/query/download workflow using test doubles. They do not prove compatibility with the current Logos Storage module API.
-- The branch's GitHub Actions workflow has not run. Workflow configuration is source evidence, not a successful CI result.
+- GitHub Actions is green on `main` ([run 41095317888](https://github.com/YodHeVauHe/logos-osm/actions/runs/41095317888)): Rust fmt/clippy/tests on Ubuntu and Windows, the in-memory e2e, the LEZ v0.3.1 sequencer deploy and on-chain e2e, and the Nix module/app builds.
 
 ## Performance
 
-The registry is designed to fit below the LEZ 100 KiB account ceiling; the core tests include a serialized-size bound. [`docs/cycles.md`](cycles.md) records observed localnet guest cycle samples for one-entry `register_region` and two-entry `register_batch`, including the measured guest Program ID and toolchain details. These samples are localnet measurements, not CI results or universal operation costs. GitHub Actions has not run on this branch.
+The registry is designed to fit below the LEZ 100 KiB account ceiling; the core tests include a serialized-size bound. [`docs/cycles.md`](cycles.md) records observed localnet guest cycle samples for one-entry `register_region` and two-entry `register_batch`, including the measured guest Program ID and toolchain details. These samples are localnet measurements, not universal operation costs. The CI chain job deploys and exercises the registry on a LEZ v0.3.1 sequencer.
 
 ## Supportability
 
 - The workspace separates shared types, SDK, CLI, FFI, guest program, Basecamp module, app, and consumer example.
-- `cargo build --workspace` and `cargo test --workspace` pass locally. `make idl` regenerates the tracked SPEL IDL. These results do not establish CI or Nix package status.
-- `nix flake show` evaluates package outputs locally. Nix package builds were not run in this docs pass; the flake reports a QML backend deprecation warning.
-- The CI workflow defines Rust, localnet, cycle-artifact, and Nix jobs, but no successful GitHub Actions run for this branch is recorded.
+- `cargo build --workspace` and `cargo test --workspace` pass locally. `make idl` regenerates the tracked SPEL IDL. CI repeats them on Ubuntu and Windows.
+- `nix flake show` evaluates package outputs locally. The CI Nix job builds `.#osm-install` and `.#osm-app-install` with `logos-module-builder`; the flake reports a QML backend deprecation warning. The repo-level [`module.json`](../module.json) indexes the per-module `metadata.json` manifests the builder consumes, and a test keeps them consistent.
+- The CI workflow's Rust, chain, and Nix jobs all pass on `main` ([run 41095317888](https://github.com/YodHeVauHe/logos-osm/actions/runs/41095317888)); the live Geofabrik job runs on manual dispatch only.
 - The flake declares Linux and macOS outputs. This does not establish macOS module builds or adoption.
 - The repository includes MIT and Apache-2.0 license texts and declares `MIT OR Apache-2.0`.
 
@@ -54,7 +54,6 @@ The registry is designed to fit below the LEZ 100 KiB account ceiling; the core 
 |---|---|---|
 | Logos testnet 0.4 | No deployment evidence or testnet Program ID recorded | Deploy, test, and record Program ID and registry PDA |
 | Logos Storage integration | Adapter targets legacy method names; current module API differs | Align adapter and verify a real host-query-download roundtrip |
-| GitHub Actions | No run for this branch | Run workflow and retain successful job evidence |
 | Module catalog | Procedure is documented; no catalog fork or URL recorded | Publish `osm` and `osm-app`, then record `logos-repo.json` URL |
 | Adoption | No external consumer or hosted coverage evidence recorded | Provide 15 covered countries, 25 checksum-verifiable entries, five independent consumers (including three Basecamp UI apps), and Linux/macOS use evidence |
-| λPrize submission | No solution PR evidence recorded | Open the solution PR with this assessment and adoption evidence |
+| λPrize submission | Draft solution PR open: [logos-co/lambda-prize#187](https://github.com/logos-co/lambda-prize/pull/187) | Update it with testnet 0.4 and adoption evidence, then mark ready |
