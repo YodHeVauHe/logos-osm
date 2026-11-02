@@ -1,0 +1,12 @@
+# Basecamp run with catalog lgx, 2026-11-02 19:25 EAT
+## installed from catalog (sha256 matched index.json, see sha-check-1.0.3.txt)
+osm 1.0.3
+osm_consumer_example 1.0.2
+osm-consumer-app 1.0.0
+## downloaded file
+total 49292
+-rw-r--r-- 1 box box 50468082 Nov  2 19:24 china-henan-261031.osm.pbf
+54c5fbf47dc51588de2ffb0a0a94a771  /workspace/lp0018-out/bc5/dl/china-henan-261031.osm.pbf
+## module load lines (run.log)
+Currently loaded modules:
+Successfully loaded UI module: "osm-consumer-app"

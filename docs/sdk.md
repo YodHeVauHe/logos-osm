@@ -137,6 +137,13 @@ v0.3 testnet registry: the app resolved `china/henan` and downloaded the
 50,468,082-byte `china-henan-261031.osm.pbf` from Logos Storage, with its MD5
 (`54c5fbf47dc51588de2ffb0a0a94a771`) matching the registry entry.
 
+Both packages are published in the module catalog as
+`osm_consumer_example` 1.0.2 and `osm-consumer-app` 1.0.0, with
+`linux-amd64` and `darwin-arm64` variants (see [`catalog.md`](catalog.md)),
+so `lgpd install osm-consumer-app` pulls the app, the consumer and `osm`. The
+check above was repeated with the catalog `.lgx` files; screenshots are in
+[`basecamp-check.md`](basecamp-check.md#consumer-app-from-the-catalog-sdk-embedding-example).
+
 ### Timeouts and storage when calling `downloadRegion`
 
 `downloadRegion` is a synchronous call that returns once the snapshot is on
