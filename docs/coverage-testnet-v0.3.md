@@ -197,11 +197,14 @@ All objects live in **one Logos Storage node on a single box**. It is a
 `tools/storage_supervisor.sh`. The data is not replicated anywhere else. The
 registry marks entries `hosted = true` because this node holds them.
 
-## Network availability: not proven online
+## Network availability
 
-**Status: the data is hosted and verified on one node, but retrieval by an
-independent node over the network has not succeeded. Do not treat these CIDs as
-online on the Logos Storage network yet.** The on-chain entries (CID, checksum,
+**Status (2026-11-02): an independent node on a GitHub runner downloaded
+`china/henan` by its registry-resolved CID through Logos Storage, and the MD5
+matched the on-chain checksum. See
+[Retrieval through a reverse tunnel](#retrieval-through-a-reverse-tunnel-passed).
+The hosting node is still behind NAT, so a node that does not open such a
+tunnel still cannot reach it; the CIDs are not generally online yet.** The on-chain entries (CID, checksum,
 source, snapshot) are valid regardless and can be re-seeded from Geofabrik with
 the same MD5.
 
@@ -258,9 +261,54 @@ transfers between two relay-only peers break. The runner also could not fetch
 the docs' public control CID, so the public testnet's relays are unreliable in
 general. Log extracts are in [verify-gha-2026-11-01.md](../coverage/verify-gha-2026-11-01.md).
 
-**Result: the hosted data is not retrievable from outside this box today.**
+**Result (2026-11-01): over relays alone, the hosted data was not retrievable
+from outside this box.**
 
-### What is needed to make it online (needs the user)
+### Retrieval through a reverse tunnel (passed)
+
+The box allows only outbound HTTPS, so the hosting node dials out instead.
+Workflow [`storage-retrieval-tunnel`](../.github/workflows/storage-retrieval-tunnel.yml)
+starts a fresh Storage node on a GitHub runner with an empty data dir,
+`listen-port 8070` and `nat = extip:127.0.0.1`, and exposes 8070 through a
+Cloudflare quick tunnel (websocat WebSocket bridge). It publishes the wss URL,
+peer ID and SPR as the `tunnel-info` artifact. On the box,
+[`tools/storage_tunnel_peer.sh`](../tools/storage_tunnel_peer.sh) bridges
+`127.0.0.1:8070` to that URL and re-inits the hosting node with the runner's SPR
+as its only bootstrap node. The tunnel carries only the libp2p connection; the
+blocks are served by storage_module over blockexchange.
+
+(`storage_module connect` is not usable for this: through `logosctl` 0.3.2 it
+returned `success=false` with no error and no `storageConnect` event for every
+argument form tried, because its `[tstr]` address argument is not delivered.)
+
+Run [41469069413](https://github.com/YodHeVauHe/logos-osm/actions/runs/41469069413),
+2026-11-02 18:11–18:13 EAT:
+
+| | |
+|---|---|
+| Downloader (runner, fresh) | `16Uiu2HAmAWEbJQshRYQCxmbav6FEVux4kVSYLyxKg9Xe4gvKtLvD` |
+| Hosting node (box) | `16Uiu2HAm2cmq5yqh7YLDqbYVQ2b9B7NrnMPMwHd6AVmBwGswdjJX` |
+| Registry | `C5UwQUopzYvYREczjNJNf8fjmzrmf2QWK2f7Dd2YRgrS` via `https://testnet.lez.logos.co`, 28 entries read |
+| Region / CID | `china/henan` / `zDvZRwzm5FYsh7BU1kK1TzjuZU92FyLFvqMjGUm5zm9pzWMLMUSP` |
+| On-chain checksum | `54c5fbf47dc51588de2ffb0a0a94a771` |
+| Fetched MD5 | `54c5fbf47dc51588de2ffb0a0a94a771` |
+| Bytes / time | 50,468,082 / 22.3 s |
+| Result | **PASS** (1/1) |
+
+The runner logged the inbound connection `127.0.0.1:8070 <- 127.0.0.1:59836`
+(the tunnel) 30 s after start. The hosting node's daemon log shows
+`Overriding network preset using custom bootstrap nodes` with the runner's peer,
+then blockexchange streams with `16U*vKtLvD` (the runner) that closed at
+18:12:51 EAT, two seconds after the runner's verify finished. Full output:
+[verify-gha-tunnel-2026-11-02.md](../coverage/verify-gha-tunnel-2026-11-02.md).
+
+Limits: one region was fetched, and the hosting node has to open the tunnel for
+each run, so this proves retrieval by an independent node, not that the CIDs are
+reachable by any node at any time. The hosting node here is a second box node
+holding the same bytes (same manifest CID; it was uploaded as
+`china__henan.osm.pbf` with block size 65536).
+
+### What is needed to make it always online (needs the user)
 
 A publicly reachable Storage node that holds the 25 CIDs (about 5 GB):
 
