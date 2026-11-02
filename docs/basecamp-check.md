@@ -25,7 +25,7 @@ the catalog `.lgx` files, whose sha256 match `index.json`.
 | Check | Result |
 | --- | --- |
 | Load | Pass. Basecamp loads `storage_module` 3.0.2, `osm` 1.0.1 and `osm-app_backend`, and opens the `osm-app` tab. |
-| Hosted regions from testnet v0.3 | Pass. After **Refresh** finishes, all 25 registered regions show `hosted · 261031` (15 country rows and 10 subregion rows), matching `osm_registry_cli get`. Screenshots taken before the refresh finished show every row as `not hosted`. |
+| Hosted regions from testnet v0.3 | Pass. After **Refresh** finishes, the screenshots show 21 of the 25 registered regions as `hosted · 261031` (11 countries, all 10 subregions). The other four (bulgaria, hungary, romania, south-korea) are higher in the list and were not captured. Every row seen agrees with `osm_registry_cli get`: registered regions show hosted, the rest show `not hosted`. Screenshots taken before the refresh finished show every row as `not hosted`. |
 | **Download** (`china/henan`, 50.5 MB) | **Fail.** The app shows `downloading china/henan…`, then `invalid module JSON: unterminated object`. No file is written. |
 | **Host selected** | Not run. `osm_host` registers the region on chain, which signs a transaction and spends deployer tokens. |
 | Consumer example | Not runnable in Basecamp: `osm_consumer_example` is a headless core module, and Basecamp only loads core modules as dependencies of a UI app. Run in a `logosctl` session instead (below). |
