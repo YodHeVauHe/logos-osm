@@ -115,6 +115,18 @@ Both hashes were also confirmed directly against the sequencer with
 `getTransaction` on `https://testnet.lez.logos.co`. The block times come from
 the block headers.
 
+**Explorer lag:** at 14:30 EAT the explorer's indexer was stuck at block 73978
+(07:51 EAT), while the sequencer head was 74333. So both links currently
+render "Transaction not found", and `/block/74320` renders "Block not found".
+An older tx from this registry renders normally, e.g.
+[`fee8be79…09bc9`](https://explorer.testnet.lez.logos.co/transaction/fee8be79a2d2f5e2e868c9e47ee78d3b54becf3555e3e65b7f9ecfed4ee09bc9).
+Until the indexer catches up, the sequencer RPC is the source of truth:
+
+```sh
+curl -s -X POST https://testnet.lez.logos.co -H 'content-type: application/json' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"getTransaction","params":["207214ce60a27d8e32a8bc5bf4c6654fc24c544fd1e4d41839da79765745bea0"]}'
+```
+
 ## Registry read-back
 
 After both transactions the registry held 28 entries (25 before, 27 after
