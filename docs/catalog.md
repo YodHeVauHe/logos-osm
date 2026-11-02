@@ -16,7 +16,10 @@ https://raw.githubusercontent.com/YodHeVauHe/logos-osm-modules/main/logos-repo.j
 - Index: <https://github.com/YodHeVauHe/logos-osm-modules/releases/download/index/index.json>
 - Current releases: [`osm-v1.0.2`](https://github.com/YodHeVauHe/logos-osm-modules/releases/tag/osm-v1.0.2),
   [`osm-app-v1.0.2`](https://github.com/YodHeVauHe/logos-osm-modules/releases/tag/osm-app-v1.0.2)
-  (earlier: `osm-v1.0.0`, `osm-app-v1.0.0`, `osm-v1.0.1`, `osm-app-v1.0.1`)
+- Earlier releases: [`osm-v1.0.1`](https://github.com/YodHeVauHe/logos-osm-modules/releases/tag/osm-v1.0.1),
+  [`osm-app-v1.0.1`](https://github.com/YodHeVauHe/logos-osm-modules/releases/tag/osm-app-v1.0.1),
+  [`osm-v1.0.0`](https://github.com/YodHeVauHe/logos-osm-modules/releases/tag/osm-v1.0.0),
+  [`osm-app-v1.0.0`](https://github.com/YodHeVauHe/logos-osm-modules/releases/tag/osm-app-v1.0.0)
 
 | Package | Version | Type | Variant | Size (bytes) | SHA-256 |
 |---|---|---|---|---|---|
@@ -31,6 +34,19 @@ pinned to that commit (catalog commit `6e8b675`). It carries the Download
 path fix, escaped error replies and the consumer timeout. The sizes and
 SHA-256 values above are from the published `index.json`; the downloaded
 `.lgx` files hash to the same values.
+
+Download URLs:
+
+- <https://github.com/YodHeVauHe/logos-osm-modules/releases/download/osm-v1.0.2/osm-1.0.2.lgx>
+- <https://github.com/YodHeVauHe/logos-osm-modules/releases/download/osm-app-v1.0.2/osm-app-1.0.2.lgx>
+
+Check a download against the index:
+
+```sh
+curl -sSLO https://github.com/YodHeVauHe/logos-osm-modules/releases/download/osm-v1.0.2/osm-1.0.2.lgx
+curl -sSLO https://github.com/YodHeVauHe/logos-osm-modules/releases/download/osm-app-v1.0.2/osm-app-1.0.2.lgx
+sha256sum osm-1.0.2.lgx osm-app-1.0.2.lgx   # compare with the table above / index.json
+```
 
 Install with the Basecamp package manager by adding the catalog URL, or with
 `lgpd`:
