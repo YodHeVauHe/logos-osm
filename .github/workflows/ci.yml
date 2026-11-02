@@ -65,7 +65,22 @@ jobs:
   chain:
     name: chain (LEZ v0.3.1 sequencer, deploy, on-chain e2e)
     runs-on: ubuntu-latest
+    env:
+      # Smaller debug target dirs for the LEZ and registry builds.
+      CARGO_PROFILE_DEV_DEBUG: "0"
     steps:
+      # Some ubuntu-26.04 images mount /tmp as a RAM-backed tmpfs with a ~6 GB
+      # per-user quota (actions/runner-images#14777), so building LEZ under
+      # /tmp/lez failed with "Disk quota exceeded". Build on the runner disk,
+      # point TMPDIR there, and free unused toolchains for headroom.
+      - name: Build on the runner disk and free space
+        run: |
+          echo "LEZ_DIR=$RUNNER_TEMP/lez" >> "$GITHUB_ENV"
+          echo "TMPDIR=$RUNNER_TEMP" >> "$GITHUB_ENV"
+          findmnt -no FSTYPE,SIZE,OPTIONS /tmp || true
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup "$AGENT_TOOLSDIRECTORY/CodeQL"
+          sudo docker image prune --all --force >/dev/null 2>&1 || true
+          df -h / "$RUNNER_TEMP"
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@1.98.1
         with:
@@ -80,9 +95,9 @@ jobs:
           test -n "$libclang"
           echo "LIBCLANG_PATH=$(dirname "$libclang")" >> "$GITHUB_ENV"
       - name: Checkout LEZ v0.3.1
-        run: git clone --depth 1 --branch v0.3.1 https://github.com/logos-blockchain/logos-execution-zone.git /tmp/lez
+        run: git clone --depth 1 --branch v0.3.1 https://github.com/logos-blockchain/logos-execution-zone.git "$LEZ_DIR"
       - name: Build LEZ v0.3.1 sequencer and wallet
-        working-directory: /tmp/lez
+        working-directory: ${{ runner.temp }}/lez
         env:
           BINDGEN_EXTRA_CLANG_ARGS: -I/usr/include
         run: |
@@ -112,13 +127,16 @@ jobs:
       - name: Deploy and exercise registry + real Storage on LEZ v0.3.1
         env:
           OSM_E2E_STORAGE: "1"
-          LEZ_ROOT: /tmp/lez
-          LEZ_WALLET_BIN: /tmp/lez/target/debug/wallet
-          LEZ_SEQUENCER_BIN: /tmp/lez/target/debug/sequencer_service
+          LEZ_ROOT: ${{ runner.temp }}/lez
+          LEZ_WALLET_BIN: ${{ runner.temp }}/lez/target/debug/wallet
+          LEZ_SEQUENCER_BIN: ${{ runner.temp }}/lez/target/debug/sequencer_service
         run: tools/run_localnet_registry_e2e.sh
       - name: Storage daemon log (on failure)
         if: failure()
         run: tail -n 200 "$LOGOSCTL_CONFIG_DIR/logs/daemon.log" 2>/dev/null || true
+      - name: Disk usage (on failure)
+        if: failure()
+        run: df -h / /tmp "$RUNNER_TEMP" || true
 
   nix:
     name: nix (Basecamp module + app)
