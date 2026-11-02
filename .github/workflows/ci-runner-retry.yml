@@ -1,0 +1,44 @@
+name: ci-runner-retry
+
+# GitHub-hosted macOS arm64 runners are sometimes short on capacity. A job that
+# waits too long is cancelled with "The job was not acquired by Runner of type
+# hosted even after multiple attempts" before any step runs, and the ci run is
+# marked failed although no code was tested. This reruns those jobs, up to two
+# more attempts. A job that got a runner and then failed or timed out is a real
+# failure and is never retried here.
+
+on:
+  workflow_run:
+    workflows: [ci]
+    types: [completed]
+
+permissions:
+  actions: write
+
+jobs:
+  retry:
+    if: ${{ github.event.workflow_run.conclusion == 'failure' && github.event.workflow_run.run_attempt < 3 }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Rerun jobs that never got a runner
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+        run: |
+          set -euo pipefail
+          jobs="$(gh api "repos/$REPO/actions/runs/$RUN_ID/attempts/$ATTEMPT/jobs?per_page=100")"
+          echo "$jobs" | jq -r '.jobs[] | "\(.conclusion)\t\(.runner_name // "")\t\(.steps | length)\t\(.name)"'
+          # Jobs that did not pass or get skipped.
+          bad="$(echo "$jobs" | jq '[.jobs[] | select(.conclusion != "success" and .conclusion != "skipped")]')"
+          # Of those, the ones that were cancelled before a runner picked them up.
+          unacquired="$(echo "$bad" | jq '[.[] | select(.conclusion == "cancelled" and ((.runner_name // "") == "") and ((.steps | length) == 0))] | length')"
+          total="$(echo "$bad" | jq 'length')"
+          echo "not passed: $total, never acquired a runner: $unacquired"
+          if [ "$total" -gt 0 ] && [ "$unacquired" -eq "$total" ]; then
+            gh run rerun "$RUN_ID" --failed -R "$REPO"
+            echo "::notice::Rerunning run $RUN_ID: $unacquired job(s) never acquired a hosted runner."
+          else
+            echo "Real failures present (or nothing to retry); not rerunning."
+          fi
