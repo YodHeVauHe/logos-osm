@@ -129,6 +129,10 @@ jobs:
         run: nix build .#osm-install
       - name: Build osm-app QML module
         run: nix build .#osm-app-install
+      - name: Build consumer example module
+        run: nix build .#osm-consumer-example
+      - name: Build consumer example UI app
+        run: nix build .#osm-consumer-app-install
 
   live-geofabrik:
     name: live Geofabrik host (dispatch only)

@@ -19,7 +19,11 @@ fn module_json_matches_builder_metadata() {
 
     assert_eq!(index["manifest_format"], "metadata.json");
     let modules = index["modules"].as_array().expect("modules array");
-    assert_eq!(modules.len(), 3, "osm, osm-app and the consumer example");
+    assert_eq!(
+        modules.len(),
+        4,
+        "osm, osm-app, the consumer example and its UI app"
+    );
 
     for module in modules {
         let manifest_rel = module["manifest"].as_str().expect("manifest path");

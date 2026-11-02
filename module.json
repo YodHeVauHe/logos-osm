@@ -29,11 +29,20 @@
     {
       "name": "osm_consumer_example",
       "type": "core",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "path": "examples/basecamp-consumer",
       "manifest": "examples/basecamp-consumer/metadata.json",
       "flake_package": "osm-consumer-example",
       "role": "Minimal embedding example that depends on the osm module without the distribution app"
+    },
+    {
+      "name": "osm-consumer-app",
+      "type": "ui_qml",
+      "version": "1.0.0",
+      "path": "examples/basecamp-consumer-app",
+      "manifest": "examples/basecamp-consumer-app/metadata.json",
+      "flake_package": "osm-consumer-app-install",
+      "role": "Minimal Basecamp UI app that calls osm through osm_consumer_example (embedding example)"
     }
   ]
 }
