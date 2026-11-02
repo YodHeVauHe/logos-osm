@@ -9,6 +9,7 @@
 #include "logos_api.h"
 #include "logos_api_client.h"
 #include "logos_sdk.h"
+#include "local_path.h"
 #include "module_json.h"
 
 OsmAppBackend::OsmAppBackend(QObject* parent)
@@ -141,7 +142,8 @@ void OsmAppBackend::importRegion(QString region, QString filePath, QString md5Ov
     setPhase(QStringLiteral("importing"));
     setStatus(QStringLiteral("importing %1…").arg(region));
     QString error;
-    const QJsonValue r = callModule("importRegion", {region, filePath, md5Override}, &error);
+    const QJsonValue r = callModule(
+        "importRegion", {region, local_path::fromUserInput(filePath), md5Override}, &error);
     setWorking(false);
     const bool verified = r.isObject() && r.toObject().value(QStringLiteral("verified")).toBool();
     // A failed module call is not a checksum mismatch; clear the result instead.
@@ -154,11 +156,18 @@ void OsmAppBackend::importRegion(QString region, QString filePath, QString md5Ov
 }
 
 void OsmAppBackend::downloadRegion(QString region, QString destDir) {
+    // Main.qml passes StandardPaths' DownloadLocation, which is a file URL.
+    const QString destPath = local_path::fromUserInput(destDir);
+    if (destPath.isEmpty()) {
+        setPhase(QStringLiteral("error"));
+        setStatus(QStringLiteral("no download folder"));
+        return;
+    }
     setWorking(true);
     setPhase(QStringLiteral("downloading"));
     setStatus(QStringLiteral("downloading %1…").arg(region));
     QString error;
-    const QJsonValue r = callModule("downloadRegion", {region, destDir}, &error);
+    const QJsonValue r = callModule("downloadRegion", {region, destPath}, &error);
     setWorking(false);
     const bool verified = r.isObject() && r.toObject().value(QStringLiteral("verified")).toBool();
     // A failed module call is not a checksum mismatch; clear the result instead.
@@ -166,7 +175,8 @@ void OsmAppBackend::downloadRegion(QString region, QString destDir) {
                         : verified       ? QStringLiteral("verified")
                                          : QStringLiteral("MISMATCH"));
     setPhase(error.isEmpty() ? QStringLiteral("idle") : QStringLiteral("error"));
-    setStatus(error.isEmpty() ? QStringLiteral("downloaded %1 (verified: %2)")
-                                    .arg(region, verified ? QStringLiteral("yes") : QStringLiteral("no"))
+    setStatus(error.isEmpty() ? QStringLiteral("downloaded %1 to %2 (verified: %3)")
+                                    .arg(region, destPath,
+                                         verified ? QStringLiteral("yes") : QStringLiteral("no"))
                               : error);
 }

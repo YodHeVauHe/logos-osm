@@ -19,6 +19,7 @@ logos_module(
         src/osm_app_backend.h
         src/osm_app_backend.cpp
         src/module_json.h
+        src/local_path.h
 )
 
 include(CTest)
@@ -28,4 +29,8 @@ if(BUILD_TESTING)
     target_link_libraries(module_json_test PRIVATE Qt6::Core)
     target_compile_options(module_json_test PRIVATE -UNDEBUG)
     add_test(NAME module_json_test COMMAND module_json_test)
+    add_executable(local_path_test tests/local_path_test.cpp)
+    target_link_libraries(local_path_test PRIVATE Qt6::Core)
+    target_compile_options(local_path_test PRIVATE -UNDEBUG)
+    add_test(NAME local_path_test COMMAND local_path_test)
 endif()

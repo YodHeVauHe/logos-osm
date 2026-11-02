@@ -12,8 +12,9 @@ Linux x86_64, the portable Basecamp build, and the LEZ v0.3.1 testnet.
   on-chain registry. The 25 regions hosted on testnet v0.3 show
   `hosted · 261031`. The same 25 regions, all at version `261031`, come back
   from `osm_registry_cli get` run outside the app.
-- Not covered here: the **Host selected** and **Download** buttons, which need
-  a funded wallet and a reachable storage peer; macOS.
+- Not covered in the first pass: the **Host selected** button, which needs a
+  funded wallet; macOS. **Download** failed in the 1.0.1 recheck and passes
+  in the 1.0.2 recheck, both below.
 
 Evidence (in [`evidence/basecamp/`](evidence/basecamp/)):
 
@@ -24,6 +25,103 @@ Evidence (in [`evidence/basecamp/`](evidence/basecamp/)):
 | `basecamp-osm-app-registry-lookup-testnet-v0.3.png` | registry lookup against testnet v0.3, hosted regions marked |
 | `basecamp-osm-app-kenya-hosted-testnet-v0.3.png` | e.g. kenya, egypt, pakistan shown `hosted · 261031` |
 | `osm_registry_cli-get-testnet-v0.3.json` | `osm_registry_cli get` output for the same program |
+
+## Recheck with the catalog 1.0.1 build
+
+Rerun on 2026-11-02 (13:00 EAT) with the `osm` 1.0.1 and `osm-app` 1.0.1
+bundles from the [module catalog](catalog.md). The installed `osm_plugin.so`
+and `osm-app_backend_plugin.so` are byte-identical to the ones unpacked from
+the catalog `.lgx` files, whose sha256 match `index.json`.
+
+| Check | Result |
+| --- | --- |
+| Load | Pass. Basecamp loads `storage_module` 3.0.2, `osm` 1.0.1 and `osm-app_backend`, and opens the `osm-app` tab. |
+| Hosted regions from testnet v0.3 | Pass. After **Refresh** finishes, the screenshots show 21 of the 25 registered regions as `hosted · 261031` (11 countries, all 10 subregions). The other four (bulgaria, hungary, romania, south-korea) are higher in the list and were not captured. Every row seen agrees with `osm_registry_cli get`: registered regions show hosted, the rest show `not hosted`. Screenshots taken before the refresh finished show every row as `not hosted`. |
+| **Download** (`china/henan`, 50.5 MB) | **Fail.** The app shows `downloading china/henan…`, then `invalid module JSON: unterminated object`. No file is written. |
+| **Host selected** | Not run. `osm_host` registers the region on chain, which signs a transaction and spends deployer tokens. |
+| Consumer example | Not runnable in Basecamp: `osm_consumer_example` is a headless core module, and Basecamp only loads core modules as dependencies of a UI app. Run in a `logosctl` session instead (below). |
+
+### Why Download fails
+
+Two bugs, both reproduced outside the app with the same 1.0.1
+`libosm_ffi.so` and the same environment as the `osm` module host:
+
+1. `Main.qml` passes `StandardPaths.writableLocation(StandardPaths.DownloadLocation)`
+   as `destDir`. In QML this is a URL (`file:///home/box/Downloads`), not a
+   path. The FFI treats it as a relative path, creates
+   `./file:/home/box/Downloads` under the working directory, and Storage
+   fails with `cannot open: file:///…/china-henan-261031.osm.pbf`.
+2. `OsmImpl::callFfi` builds the error reply as
+   `{"ok":false,"error":"<lastError>"}` without escaping. The Storage error
+   contains quotes, so the app cannot parse the reply and shows
+   `invalid module JSON` instead of the real error.
+
+With a plain directory path, the same `osm_download` call returns
+`{"source":"logos_storage","bytes":50468082,"verified":true}` in about 3 s,
+and the file's MD5 (`54c5fbf47dc51588de2ffb0a0a94a771`) matches the
+registry checksum. The data comes from the box's own Storage node, so this
+does not show retrieval from another node.
+
+### Consumer example in logosctl
+
+`osm` 1.0.1 and `osm_consumer_example` loaded in a `logosctl` 0.3.2 session.
+The consumer was the `linux-amd64-dev` build, relabelled `linux-amd64` so
+`logosctl` would load it.
+
+- `resolveRegion china/henan` through the consumer returned the on-chain
+  entry (CID `zDvZRwzm5FYsh7BU1kK1TzjuZU92FyLFvqMjGUm5zm9pzWMLMUSP`, version
+  `261031`, hosted).
+- `downloadRegion china/henan <dir>` through the consumer failed: the
+  consumer's call to `osm` timed out after 30 s (`RPC_FAILED`), no file was
+  written, and the session daemon exited afterwards. Not yet diagnosed.
+
+Evidence for the 1.0.1 recheck:
+
+| File | Shows |
+| --- | --- |
+| `basecamp-1.0.1-countries-hosted-testnet-v0.3.png` | country rows, e.g. thailand, pakistan, kenya, `hosted · 261031` |
+| `basecamp-1.0.1-subregions-hosted-testnet-v0.3.png` | India and China subregions `hosted · 261031` |
+| `basecamp-1.0.1-download-china-henan-started.png` | Download clicked, `downloading china/henan…` |
+| `basecamp-1.0.1-download-china-henan-error.png` | the `invalid module JSON: unterminated object` error |
+| `logosctl-consumer-resolve-china-henan.json` | consumer `resolveRegion` output |
+| `logosctl-consumer-download-china-henan.json` | consumer `downloadRegion` error |
+
+## Recheck with osm and osm-app 1.0.2
+
+Rechecked on 2026-11-02 with the 1.0.2 catalog packages, which were built from
+this branch (see [`catalog.md`](catalog.md)), against the same program on
+testnet v0.3. Basecamp ran on a virtual X display. The storage backend was a
+`logosctl` 0.3.2 node on the same machine that hosts the regions
+(`LOGOSCTL_BIN`, `LOGOSCTL_CONFIG_DIR`). So the download went through Logos
+Storage, but not from a remote peer.
+
+- The registry now has 28 entries: the earlier 25 at `261031`, plus greece,
+  chile and belarus at `261101`. After **Refresh**, the app shows them as
+  hosted, for example greece `hosted · 261101` and hungary, romania, bulgaria
+  and south-korea `hosted · 261031`. Refresh takes about 60 to 90 seconds,
+  because it resolves each region with its own `osm_registry_cli` call.
+- **Download** on `china/henan` wrote `china-henan-261031.osm.pbf` (50,468,082
+  bytes) to the download folder. The app reported `verified: yes` and
+  `checksum verified`. Its MD5, `54c5fbf47dc51588de2ffb0a0a94a771`, matches the
+  registry entry.
+- `osm_consumer_example.downloadRegion china/henan` under `logosctl`, with
+  `osm` 1.0.2 and the consumer 1.0.1, returned `{"bytes":50468082,
+  "verified":true}` after `setConfig` pointed `logosctl_bin` and
+  `storage_config_dir` at the hosting node. The file's MD5 matches. In a second
+  run, the session's own fresh `storage_module` was used instead. There,
+  `logosctl call` gave up after its fixed 20 s timeout, and after 4 minutes the
+  file was still empty. That fresh node had not fetched the content.
+- **Host selected** was not clicked. macOS was not checked.
+
+| File | Shows |
+| --- | --- |
+| `basecamp-osm-app-1.0.2-hosted-greece-hungary-romania-bulgaria.png` | greece `hosted · 261101`; hungary, romania, bulgaria `hosted · 261031` |
+| `basecamp-osm-app-1.0.2-hosted-south-korea.png` | south-korea `hosted · 261031` |
+| `basecamp-osm-app-1.0.2-hosted-asia-americas-africa.png` | chile `hosted · 261101`, other hosted countries |
+| `basecamp-osm-app-1.0.2-subregions-hosted.png` | hosted india and china subregions, including china/henan |
+| `basecamp-osm-app-1.0.2-download-verified-china-henan.png` | `downloaded china/henan to ... (verified: yes)`, `checksum verified` |
+| `osm_registry_cli-get-testnet-v0.3-28-entries.json` | `osm_registry_cli get` with all 28 entries |
+| `consumer-1.0.2-downloadRegion.txt` | both consumer runs, with the MD5 |
 
 ## What had to change
 
