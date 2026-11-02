@@ -1,0 +1,33 @@
+2026-11-02 14:38:49 EAT
+{"dependencies_loaded":[],"module":"osm","status":"ok","version":"1.0.2"}
+{"dependencies_loaded":[],"module":"osm_consumer_example","status":"ok","version":"1.0.1"}
+setConfig:
+{"method":"setConfig","module":"osm","result":"{\"ok\":true,\"value\":{\"program_id\":\"C31bCPXKa5uy1hzmegqMABWLbavoSJbY4Rhrc5yNXPrY\",\"cli_bin\":\"regcli-target-nix/release/osm_registry_cli\"}}","status":"ok"}
+resolve:
+{"method":"resolveRegion","module":"osm_consumer_example","result":"{\"region\":\"china/henan\",\"parent\":\"china\",\"level\":1,\"cid\":\"zDvZRwzm5FYsh7BU1kK1TzjuZU92FyLFvqMjGUm5zm9pzWMLMUSP\",\"sour
+download:
+{"code":"METHOD_FAILED","error":{"code":"timeout","message":"call to 'osm_consumer_example.downloadRegion' timed out after 20000ms","origin":"osm_consumer_example"},"message":"Call to osm_consumer_example.downloadRegion failed (timeout: call to 'osm_consumer_example.downloadRegion' timed out after 20000ms).","status":"error"}
+elapsed: 20 s
+daemon status:
+{"daemon":{"pid":2828697,"status":"running","version":"1.0.0"},"modules":[{"name":"package_manager","status":"loaded","uptime_seconds":27,"version":"1.0.0"},{"name":"storage_module","status":"loaded","uptime_seconds":27,"version":"3.0.2"},{"name":"package_downloader","status":"loaded","uptime_seconds":27,"version":"1.0.0"},{"name":"osm_consumer_example","status":"loaded","uptime_seconds":24,"version":"1.0.1"},{"name":"osm","status":"loaded","uptime_seconds":24,"version":"1.0.2"},{"name":"modules_state","status":"loaded","uptime_seconds":27,"version":"0.1.0"},{"name":"capability_module","status":"loaded","uptime_seconds":27,"version":"1.0.0"}],"modules_summary":{"crashed":0,"loaded":7,"not_loaded":0}}
+total 8
+drwxr-xr-x  2 box box 4096 Nov  2 14:38 .
+drwxr-xr-x 13 box box 4096 Nov  2 14:38 ..
+-rw-r--r--  1 box box    0 Nov  2 14:38 china-henan-261031.osm.pbf
+=== run 2 (setConfig routes storage through the hosting node) 2026-11-02 14:43:11 EAT
+{"dependencies_loaded":[],"module":"osm","status":"ok","version":"1.0.2"}
+{"dependencies_loaded":[],"module":"osm_consumer_example","status":"ok","version":"1.0.1"}
+setConfig:
+{"method":"setConfig","module":"osm","result":"{\"ok\":true,\"value\":{\"program_id\":\"C31bCPXKa5uy1hzmegqMABWLbavoSJbY4Rhrc5yNXPrY\",\"cli_bin\":\"regcli-target-nix/release/osm_registry_cli\",\"logosctl_bin\":\"/workspace/storage-tools/squashfs-root/usr/bin/logosctl\",\"stora
+resolve:
+{"method":"resolveRegion","module":"osm_consumer_example","result":"{\"region\":\"china/henan\",\"parent\":\"china\",\"level\":1,\"cid\":\"zDvZRwzm5FYsh7BU1kK1TzjuZU92FyLFvqMjGUm5zm9pzWMLMUSP\",\"sour
+download:
+{"method":"downloadRegion","module":"osm_consumer_example","result":"{\"region\":\"china/henan\",\"source\":\"logos_storage\",\"path\":\"dl102/f2/china-henan-261031.osm.pbf\",\"bytes\":50468082,\"verified\":true}","status":"ok"}
+elapsed: 1 s
+daemon status:
+{"daemon":{"pid":2833075,"status":"running","version":"1.0.0"},"modules":[{"name":"package_manager","status":"loaded","uptime_seconds":7,"version":"1.0.0"},{"name":"storage_module","status":"loaded","uptime_seconds":7,"version":"3.0.2"},{"name":"package_downloader","status":"loaded","uptime_seconds":7,"version":"1.0.0"},{"name":"osm_consumer_example","status":"loaded","uptime_seconds":4,"version":"1.0.1"},{"name":"osm","status":"loaded","uptime_seconds":4,"version":"1.0.2"},{"name":"modules_state","status":"loaded","uptime_seconds":7,"version":"0.1.0"},{"name":"capability_module","status":"loaded","uptime_seconds":7,"version":"1.0.0"}],"modules_summary":{"crashed":0,"loaded":7,"not_loaded":0}}
+total 49296
+drwxr-xr-x  2 box box     4096 Nov  2 14:43 .
+drwxr-xr-x 13 box box     4096 Nov  2 14:43 ..
+-rw-r--r--  1 box box 50468082 Nov  2 14:43 china-henan-261031.osm.pbf
+54c5fbf47dc51588de2ffb0a0a94a771  dl102/f2/china-henan-261031.osm.pbf
