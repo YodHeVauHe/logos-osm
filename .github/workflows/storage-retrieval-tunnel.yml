@@ -22,8 +22,6 @@ on:
         description: "how long to wait for the hosting node to dial in"
         required: false
         default: "1200"
-  push:
-    branches: [ci/storage-tunnel-retrieval]
 
 jobs:
   retrieve:
