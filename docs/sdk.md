@@ -101,6 +101,39 @@ The root flake passes its `osm` module derivation to `logos-module-builder`,
 which generates the dependency wrapper and bundles the OSM module and its
 transitive dependencies into the consumer package.
 
+### Timeouts and storage when calling `downloadRegion`
+
+`downloadRegion` is a synchronous call that returns once the snapshot is on
+disk and verified, so it can take much longer than an ordinary RPC:
+
+- The generated client's default RPC timeout is 20 s. The consumer passes an
+  explicit timeout (`modules().osm.downloadRegion(region, destDir, &err,
+  15 * 60 * 1000)`) and turns a failed call into an
+  `{"ok":false,"error":...}` object instead of an empty string. Before this,
+  the consumer gave up after 20 s and `logosctl call` reported `RPC_FAILED`
+  while `osm` was still downloading.
+- `logosctl call` itself (logosctl 0.3.2) waits 20 s for the method it calls
+  and has no option to raise that, so a CLI call into the consumer or into
+  `osm` fails with `timed out after 20000ms` for any download that takes longer.
+  This limit is upstream. Basecamp apps and other modules call with their own
+  timeouts and are not limited by it. `osm` keeps downloading after the caller
+  gives up, and later calls to `osm` wait until that download ends.
+- In a `logosctl` session the daemon starts each module host with
+  `LOGOSCTL_CONFIG_DIR` set to that session's directory. So, unless told
+  otherwise, `osm` fetches through the session's own `storage_module`. A fresh
+  node there may not reach the node holding the CID for minutes. Point `osm` at
+  a storage node that is connected to the network with
+  `setConfig` (`"logosctl_bin"` and `"storage_config_dir"`):
+
+  ```sh
+  logosctl call osm setConfig '{"program_id":"<id>","cli_bin":"<osm_registry_cli>","logosctl_bin":"<logosctl>","storage_config_dir":"<dir of the storage node>"}'
+  logosctl call osm_consumer_example downloadRegion china/henan /path/to/dir
+  ```
+
+- `destDir` may be a plain path or a local `file://` URL. Both `osm` and
+  `osm-app` convert the URL to a path. Before 1.0.2, a `file://` URL created a
+  relative `file:` directory in the host's working directory.
+
 ## Hosting (distribution face)
 
 ```rust
