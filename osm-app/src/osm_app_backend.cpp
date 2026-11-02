@@ -1,29 +1,78 @@
-#include "osm_app_plugin.h"
+#include "osm_app_backend.h"
 
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QProcessEnvironment>
+#include <QTimer>
 
 #include "logos_api.h"
 #include "logos_api_client.h"
+#include "logos_sdk.h"
 #include "module_json.h"
 
-OsmAppPlugin::OsmAppPlugin() = default;
+OsmAppBackend::OsmAppBackend(QObject* parent)
+    : OsmAppSimpleSource(parent)
+{
+    setRegions(QStringLiteral("[]"));
+    setRegistryEntries(QStringLiteral("[]"));
+    setUpdates(QStringLiteral("[]"));
+    setPhase(QStringLiteral("idle"));
+}
 
-OsmAppPlugin::~OsmAppPlugin() = default;
+void OsmAppBackend::onContextReady() {
+    // modules() is live from here; the osm client may still be connecting.
+    QTimer::singleShot(0, this, [this]() { loadWhenReady(0); });
+}
 
-QJsonValue OsmAppPlugin::callModule(const char* method, const QJsonArray& args, QString* error) {
-    if (!logosAPI) {
+void OsmAppBackend::loadWhenReady(int attempt) {
+    LogosAPIClient* client = modules().api->getClient(QStringLiteral("osm"));
+    if (!client || !client->isConnected()) {
+        if (attempt >= 50) {
+            setPhase(QStringLiteral("error"));
+            setStatus(QStringLiteral("osm module did not become ready"));
+            return;
+        }
+        QTimer::singleShot(200, this, [this, attempt]() { loadWhenReady(attempt + 1); });
+        return;
+    }
+    applyEnvConfig();
+    refresh();
+}
+
+// The osm module starts with an empty config, so registry lookups fail with
+// "config.program_id is required". Hand it the deployment from the same
+// environment variables the osm CLI reads; rpc_url, wallet_home and the
+// logosctl settings already fall back to their environment variables inside
+// the FFI.
+void OsmAppBackend::applyEnvConfig() {
+    const QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+    QJsonObject cfg;
+    const QString programId = env.value(QStringLiteral("OSM_PROGRAM_ID"));
+    if (!programId.isEmpty()) cfg.insert(QStringLiteral("program_id"), programId);
+    const QString cliBin = env.value(QStringLiteral("OSM_REGISTRY_CLI"));
+    if (!cliBin.isEmpty()) cfg.insert(QStringLiteral("cli_bin"), cliBin);
+    if (cfg.isEmpty()) return;
+    QString error;
+    callModule("setConfig",
+               {QString::fromUtf8(QJsonDocument(cfg).toJson(QJsonDocument::Compact))}, &error);
+    if (!error.isEmpty()) setStatus(error);
+}
+
+QJsonValue OsmAppBackend::callModule(const char* method, const QJsonArray& args, QString* error) {
+    if (!isContextReady()) {
         if (error) *error = QStringLiteral("Logos API is unavailable");
         return {};
     }
-    LogosAPIClient* client = logosAPI->getClient(QStringLiteral("osm"));
+    LogosAPIClient* client = modules().api->getClient(QStringLiteral("osm"));
     if (!client) {
         if (error) *error = QStringLiteral("osm module is unavailable");
         return {};
     }
+    // Pass the arguments as a QVariantList: a QJsonArray would bind to the
+    // single-QVariant overload and reach osm as one wrong-typed argument.
     const QVariant v = client->invokeRemoteMethod(
-        QStringLiteral("osm"), QString::fromLatin1(method), args,
+        QStringLiteral("osm"), QString::fromLatin1(method), args.toVariantList(),
         Timeout(60 * 1000));
     if (v.canConvert<LogosResult>()) {
         const LogosResult lr = v.value<LogosResult>();
@@ -41,49 +90,7 @@ QJsonValue OsmAppPlugin::callModule(const char* method, const QJsonArray& args, 
     return module_json::parseResponse(text, error);
 }
 
-void OsmAppPlugin::setRegions(const QString& v) {
-    if (m_regions == v) return;
-    m_regions = v;
-    emit regionsChanged(v);
-}
-
-void OsmAppPlugin::setRegistryEntries(const QString& v) {
-    if (m_registryEntries == v) return;
-    m_registryEntries = v;
-    emit registryEntriesChanged(v);
-}
-
-void OsmAppPlugin::setUpdates(const QString& v) {
-    if (m_updates == v) return;
-    m_updates = v;
-    emit updatesChanged(v);
-}
-
-void OsmAppPlugin::setPhase(const QString& v) {
-    if (m_phase == v) return;
-    m_phase = v;
-    emit phaseChanged(v);
-}
-
-void OsmAppPlugin::setStatus(const QString& v) {
-    if (m_status == v) return;
-    m_status = v;
-    emit statusChanged(v);
-}
-
-void OsmAppPlugin::setWorking(bool v) {
-    if (m_working == v) return;
-    m_working = v;
-    emit workingChanged(v);
-}
-
-void OsmAppPlugin::setLastVerification(const QString& v) {
-    if (m_lastVerification == v) return;
-    m_lastVerification = v;
-    emit lastVerificationChanged(v);
-}
-
-void OsmAppPlugin::refresh() {
+void OsmAppBackend::refresh() {
     QString error;
     const QJsonValue discovered = callModule("discover", {}, &error);
     if (!discovered.isArray()) {
@@ -107,7 +114,7 @@ void OsmAppPlugin::refresh() {
     setRegistryEntries(QString::fromUtf8(QJsonDocument(entries).toJson(QJsonDocument::Compact)));
 }
 
-void OsmAppPlugin::checkUpdates() {
+void OsmAppBackend::checkUpdates() {
     setPhase(QStringLiteral("checking"));
     QString error;
     const QJsonValue updates = callModule("checkUpdates", {}, &error);
@@ -117,7 +124,7 @@ void OsmAppPlugin::checkUpdates() {
     setPhase(error.isEmpty() ? QStringLiteral("idle") : QStringLiteral("error"));
 }
 
-void OsmAppPlugin::hostRegions(const QString& regionsCsv) {
+void OsmAppBackend::hostRegions(QString regionsCsv) {
     setWorking(true);
     setPhase(QStringLiteral("hosting"));
     setStatus(QStringLiteral("hosting %1…").arg(regionsCsv));
@@ -129,8 +136,7 @@ void OsmAppPlugin::hostRegions(const QString& regionsCsv) {
     refresh();
 }
 
-void OsmAppPlugin::importRegion(const QString& region, const QString& filePath,
-                                const QString& md5Override) {
+void OsmAppBackend::importRegion(QString region, QString filePath, QString md5Override) {
     setWorking(true);
     setPhase(QStringLiteral("importing"));
     setStatus(QStringLiteral("importing %1…").arg(region));
@@ -147,7 +153,7 @@ void OsmAppPlugin::importRegion(const QString& region, const QString& filePath,
     refresh();
 }
 
-void OsmAppPlugin::downloadRegion(const QString& region, const QString& destDir) {
+void OsmAppBackend::downloadRegion(QString region, QString destDir) {
     setWorking(true);
     setPhase(QStringLiteral("downloading"));
     setStatus(QStringLiteral("downloading %1…").arg(region));

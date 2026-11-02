@@ -68,7 +68,7 @@ private:
     {
         if (!load(&lastError_))
             return {};
-        dlsym(RTLD_DEFAULT, nullptr); // no-op keeps dlerror state clean per call
+        dlerror(); // clear any stale error before the lookup (dlsym(…, nullptr) segfaults in glibc)
         void* sym = dlsym(lib_, symbol);
         if (!sym)
         {
