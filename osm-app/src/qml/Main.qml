@@ -167,7 +167,8 @@ ColumnLayout {
                 Button {
                     text: "Download"
                     enabled: !appBridge.working
-                    onClicked: appBridge.downloadRegion(modelData.region, StandardPaths.writableLocation(StandardPaths.DownloadLocation))
+                    // writableLocation() is a file:// URL; the backend turns it into a path.
+                    onClicked: appBridge.downloadRegion(modelData.region, StandardPaths.writableLocation(StandardPaths.DownloadLocation).toString())
                 }
             }
         }

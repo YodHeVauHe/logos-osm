@@ -17,4 +17,13 @@ logos_module(
         src/osm_impl.h
         src/osm_impl.cpp
         src/osm_ffi_client.h
+        src/osm_json.h
+        src/local_path.h
 )
+
+include(CTest)
+if(BUILD_TESTING)
+    add_executable(osm_module_util_test tests/osm_module_util_test.cpp)
+    target_compile_options(osm_module_util_test PRIVATE -UNDEBUG)
+    add_test(NAME osm_module_util_test COMMAND osm_module_util_test)
+endif()

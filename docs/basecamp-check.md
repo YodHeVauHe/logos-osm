@@ -12,8 +12,19 @@ Linux x86_64, the portable Basecamp build, and the LEZ v0.3.1 testnet.
   on-chain registry. The 25 regions hosted on testnet v0.3 show
   `hosted · 261031`. The same 25 regions, all at version `261031`, come back
   from `osm_registry_cli get` run outside the app.
-- Not covered in the first pass: the **Host selected** and **Download**
-  buttons; macOS. See the 1.0.1 recheck below for Download.
+- Not covered in the first pass: the **Host selected** button, which needs a
+  funded wallet; macOS. **Download** failed in the 1.0.1 recheck and passes
+  in the 1.0.2 recheck, both below.
+
+Evidence (in [`evidence/basecamp/`](evidence/basecamp/)):
+
+| File | Shows |
+| --- | --- |
+| `basecamp-portable-osm-app-loaded-no-bridge.png` | osm-app tab loaded through the module backend, before the region list |
+| `basecamp-portable-osm-app-discover.png` | predefined regions listed from `osm.discover` |
+| `basecamp-osm-app-registry-lookup-testnet-v0.3.png` | registry lookup against testnet v0.3, hosted regions marked |
+| `basecamp-osm-app-kenya-hosted-testnet-v0.3.png` | e.g. kenya, egypt, pakistan shown `hosted · 261031` |
+| `osm_registry_cli-get-testnet-v0.3.json` | `osm_registry_cli get` output for the same program |
 
 ## Recheck with the catalog 1.0.1 build
 
@@ -75,15 +86,42 @@ Evidence for the 1.0.1 recheck:
 | `logosctl-consumer-resolve-china-henan.json` | consumer `resolveRegion` output |
 | `logosctl-consumer-download-china-henan.json` | consumer `downloadRegion` error |
 
-Evidence (in [`evidence/basecamp/`](evidence/basecamp/)):
+## Recheck with osm and osm-app 1.0.2
+
+Rechecked on 2026-11-02 with the 1.0.2 catalog packages, which were built from
+this branch (see [`catalog.md`](catalog.md)), against the same program on
+testnet v0.3. Basecamp ran on a virtual X display. The storage backend was a
+`logosctl` 0.3.2 node on the same machine that hosts the regions
+(`LOGOSCTL_BIN`, `LOGOSCTL_CONFIG_DIR`). So the download went through Logos
+Storage, but not from a remote peer.
+
+- The registry now has 28 entries: the earlier 25 at `261031`, plus greece,
+  chile and belarus at `261101`. After **Refresh**, the app shows them as
+  hosted, for example greece `hosted · 261101` and hungary, romania, bulgaria
+  and south-korea `hosted · 261031`. Refresh takes about 60 to 90 seconds,
+  because it resolves each region with its own `osm_registry_cli` call.
+- **Download** on `china/henan` wrote `china-henan-261031.osm.pbf` (50,468,082
+  bytes) to the download folder. The app reported `verified: yes` and
+  `checksum verified`. Its MD5, `54c5fbf47dc51588de2ffb0a0a94a771`, matches the
+  registry entry.
+- `osm_consumer_example.downloadRegion china/henan` under `logosctl`, with
+  `osm` 1.0.2 and the consumer 1.0.1, returned `{"bytes":50468082,
+  "verified":true}` after `setConfig` pointed `logosctl_bin` and
+  `storage_config_dir` at the hosting node. The file's MD5 matches. In a second
+  run, the session's own fresh `storage_module` was used instead. There,
+  `logosctl call` gave up after its fixed 20 s timeout, and after 4 minutes the
+  file was still empty. That fresh node had not fetched the content.
+- **Host selected** was not clicked. macOS was not checked.
 
 | File | Shows |
 | --- | --- |
-| `basecamp-portable-osm-app-loaded-no-bridge.png` | osm-app tab loaded through the module backend, before the region list |
-| `basecamp-portable-osm-app-discover.png` | predefined regions listed from `osm.discover` |
-| `basecamp-osm-app-registry-lookup-testnet-v0.3.png` | registry lookup against testnet v0.3, hosted regions marked |
-| `basecamp-osm-app-kenya-hosted-testnet-v0.3.png` | e.g. kenya, egypt, pakistan shown `hosted · 261031` |
-| `osm_registry_cli-get-testnet-v0.3.json` | `osm_registry_cli get` output for the same program |
+| `basecamp-osm-app-1.0.2-hosted-greece-hungary-romania-bulgaria.png` | greece `hosted · 261101`; hungary, romania, bulgaria `hosted · 261031` |
+| `basecamp-osm-app-1.0.2-hosted-south-korea.png` | south-korea `hosted · 261031` |
+| `basecamp-osm-app-1.0.2-hosted-asia-americas-africa.png` | chile `hosted · 261101`, other hosted countries |
+| `basecamp-osm-app-1.0.2-subregions-hosted.png` | hosted india and china subregions, including china/henan |
+| `basecamp-osm-app-1.0.2-download-verified-china-henan.png` | `downloaded china/henan to ... (verified: yes)`, `checksum verified` |
+| `osm_registry_cli-get-testnet-v0.3-28-entries.json` | `osm_registry_cli get` with all 28 entries |
+| `consumer-1.0.2-downloadRegion.txt` | both consumer runs, with the MD5 |
 
 ## What had to change
 

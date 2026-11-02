@@ -1,6 +1,8 @@
 #include "osm_impl.h"
 
+#include "local_path.h"
 #include "osm_ffi_client.h"
+#include "osm_json.h"
 
 // The FFI client is header-only (one instance per module context).
 class OsmImpl::FfiClient : public OsmFfiClient
@@ -13,7 +15,7 @@ std::string OsmImpl::callFfi(const char* symbol, int argc, const std::string* ar
     client.setConfig(ffiConfig_);
     std::string err;
     if (!client.load(&err))
-        return "{\"ok\":false,\"error\":\"" + err + "\"}";
+        return osm_json::errorReply(err);
 
     // Route through the named method wrappers (which re-check the load).
     std::string r;
@@ -32,7 +34,10 @@ std::string OsmImpl::callFfi(const char* symbol, int argc, const std::string* ar
     else if (std::string(symbol) == "osm_download")
         r = client.downloadRegion(args[0], args[1]);
 
-    return r.empty() ? "{\"ok\":false,\"error\":\"" + client.lastError() + "\"}" : r;
+    if (r.empty())
+        return osm_json::errorReply(client.lastError().empty() ? std::string("unknown osm call: ") + symbol
+                                                               : client.lastError());
+    return r;
 }
 
 std::string OsmImpl::discover()
@@ -54,7 +59,8 @@ std::string OsmImpl::query(const std::string& kind, const std::string& value)
 
 std::string OsmImpl::downloadRegion(const std::string& region, const std::string& destDir)
 {
-    const std::string a[] = {region, destDir};
+    // Accept a local file URL (what QML passes for a folder) as well as a path.
+    const std::string a[] = {region, local_path::fromUserInput(destDir)};
     return callFfi("osm_download", 2, a);
 }
 
@@ -67,7 +73,7 @@ std::string OsmImpl::hostRegions(const std::string& regionsCsv)
 std::string OsmImpl::importRegion(const std::string& region, const std::string& filePath,
                                   const std::string& md5Override)
 {
-    const std::string a[] = {region, filePath, md5Override};
+    const std::string a[] = {region, local_path::fromUserInput(filePath), md5Override};
     return callFfi("osm_import", 3, a);
 }
 
