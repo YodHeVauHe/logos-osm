@@ -35,15 +35,24 @@
         flakeInputs = inputs // { osm = osmModule; };
       };
 
+      osmConsumerAppModule = logos-module-builder.lib.mkLogosQmlModule {
+        src = ./examples/basecamp-consumer-app;
+        configFile = ./examples/basecamp-consumer-app/metadata.json;
+        flakeInputs = inputs // { osm_consumer_example = osmConsumerModule; };
+      };
+
       packagesFor = system:
         let
           osmPkgs = osmModule.packages.${system} or {};
           appPkgs = osmAppModule.packages.${system} or {};
           consumerPkgs = osmConsumerModule.packages.${system} or {};
+          consumerAppPkgs = osmConsumerAppModule.packages.${system} or {};
           pfx = tag: set: nixpkgs.lib.mapAttrs'
             (k: v: nixpkgs.lib.nameValuePair "${tag}-${k}" v) set;
         in
-        pfx "osm" osmPkgs // pfx "osm-app" appPkgs // {
+        pfx "osm" osmPkgs // pfx "osm-app" appPkgs
+        // pfx "osm-consumer-app" consumerAppPkgs
+        // pfx "osm-consumer-example" consumerPkgs // {
           osm-consumer-example = consumerPkgs.install;
         };
 

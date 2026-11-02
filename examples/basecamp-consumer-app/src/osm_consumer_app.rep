@@ -1,0 +1,21 @@
+// RemoteObjects view contract of the OSM consumer example app.
+class OsmConsumerApp
+{
+    // Registry entry JSON from the last resolve ("" before the first call).
+    PROP(QString entry READWRITE)
+
+    // Last human-readable status line.
+    PROP(QString status READWRITE)
+
+    // true while a call is in flight
+    PROP(bool working READWRITE)
+
+    // Last download verification result ("verified"/"MISMATCH"/"")
+    PROP(QString lastVerification READWRITE)
+
+    // Path of the last downloaded file
+    PROP(QString lastPath READWRITE)
+
+    SLOT(void resolveRegion(QString region))
+    SLOT(void downloadRegion(QString region, QString destDir))
+};

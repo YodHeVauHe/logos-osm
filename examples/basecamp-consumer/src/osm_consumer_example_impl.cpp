@@ -53,6 +53,13 @@ std::string orError(const std::string& result, const logos::CallError& err,
 
 } // namespace
 
+std::string OsmConsumerExampleImpl::configure(const std::string& configJson)
+{
+    logos::CallError err;
+    const std::string r = modules().osm.setConfig(configJson, &err, kResolveTimeoutMs);
+    return orError(r, err, "setConfig");
+}
+
 std::string OsmConsumerExampleImpl::resolveRegion(const std::string& region)
 {
     logos::CallError err;

@@ -101,6 +101,42 @@ The root flake passes its `osm` module derivation to `logos-module-builder`,
 which generates the dependency wrapper and bundles the OSM module and its
 transitive dependencies into the consumer package.
 
+### Embedding example: a Basecamp UI app on top of the consumer
+
+[`examples/basecamp-consumer-app`](../examples/basecamp-consumer-app) is a
+minimal `mkLogosQmlModule` UI app (`osm-consumer-app`) whose only module
+dependency is `osm_consumer_example`. It shows how a third-party Basecamp app
+uses OSM through another module rather than linking anything itself:
+
+```
+osm-consumer-app (QML + backend) → osm_consumer_example → osm → LEZ registry / Logos Storage
+```
+
+Its backend (`src/osm_consumer_app_backend.cpp`) calls three consumer methods
+with `invokeRemoteMethod` and an explicit timeout:
+
+| Consumer method | Purpose |
+|---|---|
+| `configure(configJson)` | forwards `program_id` / `cli_bin` to `osm.setConfig` (read from `OSM_PROGRAM_ID` / `OSM_REGISTRY_CLI`) |
+| `resolveRegion(region)` | returns the on-chain registry entry JSON |
+| `downloadRegion(region, destDir)` | downloads the snapshot and returns `{path, verified, source, bytes}` |
+
+The QML view (`src/qml/Main.qml`) has a region field (default `china/henan`),
+**Resolve** and **Download** buttons, and shows the entry and the verified path.
+Downloads go to the user's Downloads folder.
+
+Build both installable packages from the repository root:
+
+```sh
+nix build .#osm-consumer-example-lgx-portable   # consumer core module (.lgx)
+nix build .#osm-consumer-app-lgx-portable       # UI app (.lgx)
+```
+
+Verified in portable Basecamp (66505d5, Linux x86_64) on 2026-11-02 with the
+v0.3 testnet registry: the app resolved `china/henan` and downloaded the
+50,468,082-byte `china-henan-261031.osm.pbf` from Logos Storage, with its MD5
+(`54c5fbf47dc51588de2ffb0a0a94a771`) matching the registry entry.
+
 ### Timeouts and storage when calling `downloadRegion`
 
 `downloadRegion` is a synchronous call that returns once the snapshot is on
