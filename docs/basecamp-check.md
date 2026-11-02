@@ -123,6 +123,38 @@ Storage, but not from a remote peer.
 | `osm_registry_cli-get-testnet-v0.3-28-entries.json` | `osm_registry_cli get` with all 28 entries |
 | `consumer-1.0.2-downloadRegion.txt` | both consumer runs, with the MD5 |
 
+## Consumer app from the catalog (SDK embedding example)
+
+Checked on 2026-11-02 with the catalog packages `osm` 1.0.3,
+`osm_consumer_example` 1.0.2 and `osm-consumer-app` 1.0.0, against the same
+program on testnet v0.3 and the same hosting `logosctl` node as the 1.0.2
+recheck. Each `.lgx` was downloaded from its catalog release and its SHA-256
+matched `index.json` before install. Basecamp ran on a virtual X display with
+the `linux-amd64` variants.
+
+`osm-consumer-app` (see [`sdk.md`](sdk.md#embedding-example-a-basecamp-ui-app-on-top-of-the-consumer))
+is a QML app that depends only on `osm_consumer_example`. Its backend calls
+the consumer's `configure`, `resolveRegion` and `downloadRegion`, and the
+consumer calls the `osm` module through the generated SDK client.
+
+- The `osm-consumer-app` tab loads and reports `ready (program C31bCPXK…)`
+  after the consumer forwarded the config to `osm.setConfig`.
+- **Resolve** on `china/henan` shows the registry entry: version `261031`,
+  checksum `54c5fbf47dc51588de2ffb0a0a94a771`, hosted.
+- **Download** wrote `china-henan-261031.osm.pbf` (50,468,082 bytes) and
+  reported `downloaded china/henan from logos_storage, 50468082 bytes
+  (verified: yes)`. The file's MD5 matches the registry checksum.
+- macOS was not run. The `darwin-arm64` variants of these packages are built
+  in CI and published, but no one loaded them in Basecamp on a Mac.
+
+| File | Shows |
+| --- | --- |
+| `sdk-catalog-consumer-app-loaded.png` | osm-consumer-app tab, `ready (program …)` |
+| `sdk-catalog-consumer-app-resolve-china-henan.png` | `resolved china/henan` with the registry entry |
+| `sdk-catalog-consumer-app-download-verified-china-henan.png` | `downloaded … (verified: yes)`, checksum verified |
+| `sdk-catalog-consumer-app-download-china-henan.txt` | installed versions, file size and MD5 |
+| `catalog-sha256-check-1.0.3.txt` | downloaded `.lgx` SHA-256 against `index.json` |
+
 ## What had to change
 
 Before this check, the app could not run in current Basecamp:
