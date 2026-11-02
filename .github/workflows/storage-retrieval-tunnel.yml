@@ -1,0 +1,112 @@
+name: storage-retrieval-tunnel
+
+# Retrieval by an independent node. A fresh Logos Storage node on a GitHub
+# runner (empty data dir) exposes its libp2p TCP port through a Cloudflare
+# quick tunnel (WebSocket, bridged with websocat). The hosting node, which sits
+# behind NAT with HTTPS-only egress, dials the runner through that tunnel
+# (tools/storage_tunnel_peer.sh). The runner then reads the OSM registry from
+# the public testnet v0.3 RPC (no keys), downloads the region by its on-chain
+# CID through Logos Storage, and compares the MD5 with the on-chain checksum.
+# The tunnel only carries the libp2p connection; the bytes are served by the
+# hosting node's storage_module over blockexchange.
+
+on:
+  workflow_dispatch:
+    inputs:
+      regions:
+        description: "space-separated regions"
+        required: false
+        default: "china/henan"
+      wait_seconds:
+        description: "how long to wait for the hosting node to dial in"
+        required: false
+        default: "1200"
+  push:
+    branches: [ci/storage-tunnel-retrieval]
+
+jobs:
+  retrieve:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    env:
+      CLOUDFLARED_URL: https://github.com/cloudflare/cloudflared/releases/download/2026.10.7/cloudflared-linux-amd64
+      CLOUDFLARED_SHA256: 1f99fb518b83dec2ba8d870a7cc991d82a77e6196295a3d2754ba17ab9f91872
+      WEBSOCAT_URL: https://github.com/vi/websocat/releases/download/v1.14.0/websocat.x86_64-unknown-linux-musl
+      WEBSOCAT_SHA256: 33a80fcbf2313e3c6e816ddafec333c1a04cc34464d4ba4970d938275775a12f
+      LISTEN_PORT: "8070"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Paths
+        run: |
+          echo "OSM_TOOLS_DIR=$RUNNER_TEMP/tools" >> "$GITHUB_ENV"
+          echo "LOGOSCTL_CONFIG_DIR=$RUNNER_TEMP/storage-session" >> "$GITHUB_ENV"
+          echo "STORAGE_DATA_DIR=$RUNNER_TEMP/storage-data" >> "$GITHUB_ENV"
+          echo "CTL=$RUNNER_TEMP/tools/logosctl-0.3.2/squashfs-root/AppRun" >> "$GITHUB_ENV"
+      - name: Install pinned logosctl 0.3.2, cloudflared and websocat (checksums verified)
+        run: |
+          SKIP_BUILD=1 tools/coverage.sh setup
+          mkdir -p "$RUNNER_TEMP/bin"
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/bin/cloudflared" "$CLOUDFLARED_URL"
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/bin/websocat" "$WEBSOCAT_URL"
+          echo "$CLOUDFLARED_SHA256  $RUNNER_TEMP/bin/cloudflared" | sha256sum -c -
+          echo "$WEBSOCAT_SHA256  $RUNNER_TEMP/bin/websocat" | sha256sum -c -
+          chmod +x "$RUNNER_TEMP/bin/"*
+      - name: Start a fresh Storage node
+        run: |
+          STORAGE_LISTEN_PORT="$LISTEN_PORT" tools/coverage.sh node
+          sleep 20
+          "$CTL" --config-dir "$LOGOSCTL_CONFIG_DIR" call storage_module debug | python3 -c 'import json,sys; v=json.load(sys.stdin)["result"]["value"]; print("peer", v.get("id")); print("addrs", v.get("addrs"))'
+      - name: Expose the libp2p port through a Cloudflare quick tunnel
+        run: |
+          "$RUNNER_TEMP/bin/websocat" -E -b ws-l:127.0.0.1:18070 "tcp:127.0.0.1:$LISTEN_PORT" > "$RUNNER_TEMP/websocat.log" 2>&1 &
+          "$RUNNER_TEMP/bin/cloudflared" tunnel --no-autoupdate --url http://127.0.0.1:18070 > "$RUNNER_TEMP/cloudflared.log" 2>&1 &
+          for _ in $(seq 60); do
+            url="$(grep -o 'https://[a-z0-9-]*\.trycloudflare\.com' "$RUNNER_TEMP/cloudflared.log" | head -1 || true)"
+            [ -n "$url" ] && break; sleep 2
+          done
+          [ -n "$url" ] || { cat "$RUNNER_TEMP/cloudflared.log"; exit 1; }
+          peer="$("$CTL" --config-dir "$LOGOSCTL_CONFIG_DIR" call storage_module peerId | python3 -c 'import json,sys; print(json.load(sys.stdin)["result"]["value"])')"
+          mkdir -p "$RUNNER_TEMP/tunnel-info"
+          python3 -c 'import json,sys; print(json.dumps({"wss": sys.argv[1].replace("https://","wss://",1), "peer": sys.argv[2], "run_id": sys.argv[3]}))' "$url" "$peer" "$GITHUB_RUN_ID" | tee "$RUNNER_TEMP/tunnel-info/tunnel.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tunnel-info
+          path: ${{ runner.temp }}/tunnel-info/tunnel.json
+      - name: Wait for the hosting node to dial in
+        run: |
+          wait="${{ github.event.inputs.wait_seconds || '1200' }}"
+          for i in $(seq "$((wait / 10))"); do
+            if ss -tn state established "( sport = :$LISTEN_PORT )" | grep -q 127.0.0.1; then
+              echo "inbound libp2p connection through the tunnel after $((i * 10)) s"; ss -tn state established "( sport = :$LISTEN_PORT )"; exit 0
+            fi
+            sleep 10
+          done
+          echo "no inbound connection within $wait s"; exit 1
+      - name: Verify registry + retrieval through Logos Storage
+        id: verify
+        run: |
+          only=()
+          for r in ${{ github.event.inputs.regions || 'china/henan' }}; do only+=(--only "$r"); done
+          tools/coverage.sh verify "${only[@]}" --timeout 1800 --work-dir "$RUNNER_TEMP/verify" \
+            --json-out "$RUNNER_TEMP/verify.json" | tee "$RUNNER_TEMP/verify.md"
+      - name: Report
+        if: always()
+        run: |
+          {
+            echo "## Retrieval by an independent node (runner, via tunnel)"
+            echo
+            cat "$RUNNER_TEMP/tunnel-info/tunnel.json" 2>/dev/null | python3 -c 'import json,sys; d=json.load(sys.stdin); print("downloader peer:", d["peer"])' || true
+            echo
+            cat "$RUNNER_TEMP/verify.md" 2>/dev/null || echo "verify produced no output"
+            echo
+            echo "verify step outcome: ${{ steps.verify.outcome }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+          grep -iE "connect|blockexc|download|error" "$LOGOSCTL_CONFIG_DIR/logs/daemon.log" 2>/dev/null | tail -n 80 || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: storage-retrieval-tunnel
+          path: |
+            ${{ runner.temp }}/verify.md
+            ${{ runner.temp }}/verify.json
+          if-no-files-found: ignore
