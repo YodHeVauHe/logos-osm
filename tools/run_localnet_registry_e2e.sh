@@ -8,7 +8,7 @@ LEZ_ROOT=${LEZ_ROOT:-/tmp/lez}
 WALLET_BIN=${LEZ_WALLET_BIN:-$LEZ_ROOT/target/debug/wallet}
 SEQUENCER_BIN=${LEZ_SEQUENCER_BIN:-$LEZ_ROOT/target/debug/sequencer_service}
 RPC_URL=${OSM_RPC_URL:-http://127.0.0.1:3040}
-TMP_HOME=$(mktemp -d /tmp/osm-lez-e2e.XXXXXX)
+TMP_HOME=$(mktemp -d "${TMPDIR:-/tmp}/osm-lez-e2e.XXXXXX")
 chmod 700 "$TMP_HOME"
 cleanup() {
   if [[ -n "${FIXTURE_PID:-}" ]]; then kill "$FIXTURE_PID" 2>/dev/null || true; fi
