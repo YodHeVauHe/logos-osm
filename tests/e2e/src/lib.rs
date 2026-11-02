@@ -228,7 +228,12 @@ async fn localnet_host_query_download() {
         .await
         .expect("host through Logos Storage and the deployed sequencer");
     assert!(entry.hosted);
-    assert!(entry.cid.starts_with('b'), "storage must return a CID");
+    // storage_module 3.0.2 returns base58btc multibase CIDs (`zDvZ...`).
+    assert!(
+        entry.cid.len() > 40 && (entry.cid.starts_with('z') || entry.cid.starts_with('b')),
+        "storage must return a multibase CID, got {:?}",
+        entry.cid
+    );
 
     // Exercise one real batch transaction with a second predefined region;
     // the same stored snapshot/CID keeps the fixture deterministic.
