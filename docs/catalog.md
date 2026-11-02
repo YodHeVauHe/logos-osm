@@ -14,13 +14,31 @@ https://raw.githubusercontent.com/YodHeVauHe/logos-osm-modules/main/logos-repo.j
 
 - Catalog repository: <https://github.com/YodHeVauHe/logos-osm-modules>
 - Index: <https://github.com/YodHeVauHe/logos-osm-modules/releases/download/index/index.json>
-- Releases: [`osm-v1.0.0`](https://github.com/YodHeVauHe/logos-osm-modules/releases/tag/osm-v1.0.0),
+- Current releases: [`osm-v1.0.1`](https://github.com/YodHeVauHe/logos-osm-modules/releases/tag/osm-v1.0.1),
+  [`osm-app-v1.0.1`](https://github.com/YodHeVauHe/logos-osm-modules/releases/tag/osm-app-v1.0.1)
+- Earlier releases: [`osm-v1.0.0`](https://github.com/YodHeVauHe/logos-osm-modules/releases/tag/osm-v1.0.0),
   [`osm-app-v1.0.0`](https://github.com/YodHeVauHe/logos-osm-modules/releases/tag/osm-app-v1.0.0)
 
 | Package | Version | Type | Variant | Size (bytes) | SHA-256 |
 |---|---|---|---|---|---|
+| `osm` | 1.0.1 | core | linux-amd64 | 6543855 | `3ededd2d2469591b25cfa6b1a342758c44c46d48ebc3d44b36bf84a227fc8b6f` |
+| `osm-app` | 1.0.1 | ui_qml | linux-amd64 | 4210184 | `df760d733f6c0cb2a7904a0a19b9e407ef847b9964637f505473340e6c70b430` |
 | `osm` | 1.0.0 | core | linux-amd64 | 6555898 | `406704edbc167c8446814e5c963814a331c433486e3629621d50958353c99c16` |
 | `osm-app` | 1.0.0 | ui_qml | linux-amd64 | 4197008 | `264d6fe918c2d08cd725532d2955342b98a85d575bbc3f5da02943af9b1f24f6` |
+
+1.0.1 carries the Basecamp fixes from #10 (module backend for `osm-app`,
+rebuilt `libosm_ffi.so`). Download URLs:
+
+- <https://github.com/YodHeVauHe/logos-osm-modules/releases/download/osm-v1.0.1/osm-1.0.1.lgx>
+- <https://github.com/YodHeVauHe/logos-osm-modules/releases/download/osm-app-v1.0.1/osm-app-1.0.1.lgx>
+
+Check a download against the index:
+
+```sh
+curl -sSLO https://github.com/YodHeVauHe/logos-osm-modules/releases/download/osm-v1.0.1/osm-1.0.1.lgx
+curl -sSLO https://github.com/YodHeVauHe/logos-osm-modules/releases/download/osm-app-v1.0.1/osm-app-1.0.1.lgx
+sha256sum osm-1.0.1.lgx osm-app-1.0.1.lgx   # compare with the table above / index.json
+```
 
 Install with the Basecamp package manager by adding the catalog URL, or with
 `lgpd`:
