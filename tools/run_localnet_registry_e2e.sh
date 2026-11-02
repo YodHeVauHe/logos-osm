@@ -11,6 +11,7 @@ RPC_URL=${OSM_RPC_URL:-http://127.0.0.1:3040}
 TMP_HOME=$(mktemp -d /tmp/osm-lez-e2e.XXXXXX)
 chmod 700 "$TMP_HOME"
 cleanup() {
+  if [[ -n "${FIXTURE_PID:-}" ]]; then kill "$FIXTURE_PID" 2>/dev/null || true; fi
   if [[ -n "${SEQUENCER_PID:-}" ]]; then kill "$SEQUENCER_PID" 2>/dev/null || true; wait "$SEQUENCER_PID" 2>/dev/null || true; fi
   rm -rf "$TMP_HOME"
 }
@@ -69,4 +70,91 @@ export LEZ_LOCALNET=1 OSM_RPC_URL="$RPC_URL" OSM_PROGRAM_ID="$HEADER"
 export OSM_CLI_BIN="$ROOT/examples/target/debug/osm_registry_cli"
 export OSM_SIGNER_ACCOUNT_ID="$PAYER" RISC0_DEV_MODE=1
 RUSTUP_TOOLCHAIN=${RUSTUP_TOOLCHAIN:-1.98.1} cargo test -p osm_e2e --features e2e localnet_registry_host_query -- --nocapture
+
+# Real Logos Storage leg (OSM_E2E_STORAGE=1): a local logosctl/storage_module
+# node started by `tools/coverage.sh node` stores and serves every object.
+fixture_md5() { curl -fsS "$1/$2-latest.osm.pbf.md5" | cut -d' ' -f1; }
+
+check_entry() { # lookup JSON file, region, expected md5
+  python3 - "$@" <<'PY'
+import json, sys
+entries = json.load(open(sys.argv[1], encoding="utf-8"))
+assert len(entries) == 1, f"expected one entry for {sys.argv[2]}, got {entries}"
+e = entries[0]
+assert e["region"] == sys.argv[2], e
+assert e["checksum"] == sys.argv[3], f"{sys.argv[2]}: checksum {e['checksum']} != {sys.argv[3]}"
+assert e["hosted"] is True, e
+assert e["cid"], e
+print(f"registry: {e['region']} cid={e['cid']} checksum={e['checksum']} version={e['version']}")
+PY
+}
+
+download_and_check() { # base, region, geofabrik path
+  local out="$WORK/dl-${2//\//_}"
+  mkdir -p "$out"
+  run_osm download "$2" --dest "$out" | tee "$WORK/download.out"
+  grep -q "from LogosStorage" "$WORK/download.out" || { echo "$2 was not served by Logos Storage" >&2; exit 1; }
+  grep -q "checksum verified: true" "$WORK/download.out" || { echo "$2 checksum not verified" >&2; exit 1; }
+  local files=("$out"/*)
+  [[ ${#files[@]} -eq 1 ]] || { echo "expected one downloaded file for $2" >&2; exit 1; }
+  local got want
+  got=$(md5sum "${files[0]}" | cut -d' ' -f1)
+  want=$(fixture_md5 "$1" "$3")
+  [[ "$got" == "$want" ]] || { echo "$2: downloaded md5 $got != $want" >&2; exit 1; }
+  echo "download: $2 md5 $got matches"
+}
+
+storage_cli_e2e() {
+  : "${LOGOSCTL_BIN:?OSM_E2E_STORAGE=1 needs LOGOSCTL_BIN}" "${LOGOSCTL_CONFIG_DIR:?OSM_E2E_STORAGE=1 needs LOGOSCTL_CONFIG_DIR}"
+  "$LOGOSCTL_BIN" --config-dir "$LOGOSCTL_CONFIG_DIR" call storage_module isRunning | grep -q '"result":true'
+
+  # SDK roundtrip: host -> real Storage -> real registry -> download by CID.
+  RUSTUP_TOOLCHAIN=${RUSTUP_TOOLCHAIN:-1.98.1} cargo test -p osm_e2e --features e2e localnet_host_query_download -- --nocapture
+
+  # CLI: bulk host with --exclude (one register_batch), local import, lookup, download.
+  RUSTUP_TOOLCHAIN=${RUSTUP_TOOLCHAIN:-1.98.1} cargo build -p osm_cli --bin osm
+  WORK="$TMP_HOME/cli-e2e"
+  mkdir -p "$WORK"
+  python3 "$ROOT/tools/e2e_geofabrik_fixture.py" "$WORK/port" 2>"$WORK/fixture.log" &
+  FIXTURE_PID=$!
+  for _ in $(seq 50); do [[ -s "$WORK/port" ]] && break; sleep 0.2; done
+  local base="http://127.0.0.1:$(cat "$WORK/port")"
+  printf 'cli_bin = "%s"\n' "$OSM_CLI_BIN" >"$WORK/osm.toml"
+  run_osm() { OSM_SIGNER="$OSM_SIGNER_ACCOUNT_ID" "$ROOT/target/debug/osm" --config "$WORK/osm.toml" --geofabrik-base "$base" "$@"; }
+
+  run_osm host greece chile belarus --exclude belarus >"$WORK/host.out" 2>"$WORK/host.err" || { cat "$WORK/host.out" "$WORK/host.err"; exit 1; }
+  cat "$WORK/host.out" "$WORK/host.err"
+  grep -q "2 registered in one batch tx, 0 skipped" "$WORK/host.out"
+  local txs
+  txs=$(grep -E "Transaction:|Submitted:" "$WORK/host.err" | grep -oE "[0-9a-fA-F]{64}" | sort -u | wc -l)
+  [[ "$txs" -eq 1 ]] || { echo "bulk host must submit exactly one transaction, saw $txs" >&2; exit 1; }
+  for pair in greece:europe/greece chile:south-america/chile; do
+    run_osm lookup --region "${pair%%:*}" --json >"$WORK/lookup.json"
+    check_entry "$WORK/lookup.json" "${pair%%:*}" "$(fixture_md5 "$base" "${pair#*:}")"
+  done
+  run_osm lookup --region belarus --json >"$WORK/lookup.json"
+  python3 -c 'import json,sys; assert json.load(open(sys.argv[1])) == [], "excluded region was registered"' "$WORK/lookup.json"
+  echo "registry: belarus absent after --exclude"
+
+  # Local import: a tampered file is refused (exit 2) and nothing is registered;
+  # the genuine file is verified against the published MD5, stored, registered.
+  curl -fsSL "$base/europe/belarus-latest.osm.pbf" -o "$WORK/belarus.osm.pbf"
+  cp "$WORK/belarus.osm.pbf" "$WORK/belarus-tampered.osm.pbf"
+  printf 'x' >>"$WORK/belarus-tampered.osm.pbf"
+  set +e; run_osm import belarus "$WORK/belarus-tampered.osm.pbf"; rc=$?; set -e
+  [[ "$rc" -eq 2 ]] || { echo "tampered import must exit 2 (checksum mismatch), got $rc" >&2; exit 1; }
+  run_osm lookup --region belarus --json >"$WORK/lookup.json"
+  python3 -c 'import json,sys; assert json.load(open(sys.argv[1])) == [], "tampered import was registered"' "$WORK/lookup.json"
+  run_osm import belarus "$WORK/belarus.osm.pbf" | tee "$WORK/import.out"
+  grep -q "^imported belarus cid=.* hosted=true" "$WORK/import.out"
+  run_osm lookup --region belarus --json >"$WORK/lookup.json"
+  check_entry "$WORK/lookup.json" belarus "$(fixture_md5 "$base" europe/belarus)"
+
+  download_and_check "$base" greece europe/greece
+  download_and_check "$base" chile south-america/chile
+  download_and_check "$base" belarus europe/belarus
+  echo "storage e2e: bulk host, local import, lookup and download passed against the real sequencer and Storage node"
+}
+
+if [[ "${OSM_E2E_STORAGE:-0}" == 1 ]]; then storage_cli_e2e; fi
 cat "$TMP_HOME/sequencer.log"

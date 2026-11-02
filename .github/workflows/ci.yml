@@ -74,12 +74,25 @@ jobs:
         run: make idl
       - name: IDL freshness
         run: git diff --exit-code -- idl/osm-registry.idl.json
-      - name: Deploy and exercise registry on LEZ v0.3.1
+      - name: Install pinned logosctl 0.3.2 / storage_module 3.0.2 (checksums verified)
+        run: |
+          echo "OSM_TOOLS_DIR=$RUNNER_TEMP/tools" >> "$GITHUB_ENV"
+          echo "LOGOSCTL_CONFIG_DIR=$RUNNER_TEMP/storage-session" >> "$GITHUB_ENV"
+          echo "STORAGE_DATA_DIR=$RUNNER_TEMP/storage-data" >> "$GITHUB_ENV"
+          echo "LOGOSCTL_BIN=$RUNNER_TEMP/tools/logosctl-0.3.2/squashfs-root/AppRun" >> "$GITHUB_ENV"
+          OSM_TOOLS_DIR="$RUNNER_TEMP/tools" SKIP_BUILD=1 tools/coverage.sh setup
+      - name: Start a local Logos Storage node on the runner
+        run: tools/coverage.sh node
+      - name: Deploy and exercise registry + real Storage on LEZ v0.3.1
         env:
+          OSM_E2E_STORAGE: "1"
           LEZ_ROOT: /tmp/lez
           LEZ_WALLET_BIN: /tmp/lez/target/debug/wallet
           LEZ_SEQUENCER_BIN: /tmp/lez/target/debug/sequencer_service
         run: tools/run_localnet_registry_e2e.sh
+      - name: Storage daemon log (on failure)
+        if: failure()
+        run: tail -n 200 "$LOGOSCTL_CONFIG_DIR/logs/daemon.log" 2>/dev/null || true
 
   nix:
     name: nix (Basecamp module + app)
