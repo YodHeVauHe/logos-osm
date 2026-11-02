@@ -1,0 +1,38 @@
+{
+  "rpc": "https://testnet.lez.logos.co",
+  "registry_pda": "C5UwQUopzYvYREczjNJNf8fjmzrmf2QWK2f7Dd2YRgrS",
+  "rows": [
+    {
+      "region": "greece",
+      "cid": "zDvZRwzm8vTvAtEuP2m9VHgQ5bp9mkFUkHBQWTZ2cqULiJMwd75F",
+      "checksum": "63a580a3203235129ae274b2d26bd872",
+      "md5": "63a580a3203235129ae274b2d26bd872",
+      "bytes": 342588747,
+      "seconds": 1.7,
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "region": "chile",
+      "cid": "zDvZRwzm4APx1ECXqsGe88HdcYTJDLGQHsncEQy61dkW7WcbRFFc",
+      "checksum": "6bb93e6a0fe5e0aa4ac4db8b0a2b9c91",
+      "md5": "6bb93e6a0fe5e0aa4ac4db8b0a2b9c91",
+      "bytes": 350897984,
+      "seconds": 1.8,
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "region": "belarus",
+      "cid": "zDvZRwzm9NDGfdvauFx5bNCnVKkKqdYCiUCLW921Ua22mfEsFpXf",
+      "checksum": "710f1f458db7bb745a44a0aa8207d8d6",
+      "md5": "710f1f458db7bb745a44a0aa8207d8d6",
+      "bytes": 351381112,
+      "seconds": 1.5,
+      "result": "PASS",
+      "detail": ""
+    }
+  ],
+  "controls": [],
+  "passed": 3
+}
