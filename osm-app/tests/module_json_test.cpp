@@ -26,6 +26,14 @@ int main() {
     assert(failure.isUndefined());
     assert(error == QStringLiteral("storage offline"));
 
+    // An escaped osm error reply that quotes JSON surfaces the real error
+    // instead of "invalid module JSON" (osm 1.0.1 Download failure).
+    const QJsonValue quoted = module_json::parseResponse(
+        QStringLiteral(R"({"ok":false,"error":"logosctl call failed: {\"status\":\"error\",\"message\":\"cannot open: x\"}"})"),
+        &error);
+    assert(quoted.isUndefined());
+    assert(error == QStringLiteral(R"(logosctl call failed: {"status":"error","message":"cannot open: x"})"));
+
     const QJsonValue absent = module_json::parseResponse(QStringLiteral("null"), &error);
     assert(absent.isNull());
     assert(error.isEmpty());
