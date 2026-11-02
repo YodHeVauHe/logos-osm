@@ -162,6 +162,10 @@ jobs:
         with:
           name: lgx-darwin-arm64
           path: dist/*.lgx
+      - uses: actions/upload-artifact@v4
+        with:
+          name: libosm_ffi-darwin-arm64
+          path: target/release/libosm_ffi.dylib
 
   live-geofabrik:
     name: live Geofabrik host (dispatch only)
