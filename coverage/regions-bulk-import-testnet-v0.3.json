@@ -1,0 +1,36 @@
+{
+  "description": "LP-0018 bulk host + local import run on LEZ testnet v0.3 (2026-11-02)",
+  "pins": {
+    "lez": "v0.3.1",
+    "lez_repo": "https://github.com/logos-blockchain/logos-execution-zone",
+    "logosctl": "0.3.2",
+    "logosctl_url": "https://github.com/logos-co/logos-logoscore-cli/releases/download/0.3.2/logosctl-x86_64-linux.tar.gz",
+    "logosctl_tar_sha256": "294fbcc6409a8851b7471582bdad2dbfaf681b5d1c67dfffec38ada925dc6762",
+    "logosctl_appimage_sha256": "dc2a7e67c7326dada2b9302fb15f9df2cacbe6de3b9db50502ad7831608ffd56",
+    "storage_module": "3.0.2",
+    "storage_network": "logos.test"
+  },
+  "chain": {
+    "rpc": "https://testnet.lez.logos.co",
+    "program_id": "C31bCPXKa5uy1hzmegqMABWLbavoSJbY4Rhrc5yNXPrY",
+    "registry_pda": "C5UwQUopzYvYREczjNJNf8fjmzrmf2QWK2f7Dd2YRgrS",
+    "explorer_tx": "https://explorer.testnet.lez.logos.co/transaction/"
+  },
+  "regions": [
+    {
+      "region": "greece",
+      "country": "greece",
+      "pbf_url": "https://download.geofabrik.de/europe/greece-latest.osm.pbf"
+    },
+    {
+      "region": "chile",
+      "country": "chile",
+      "pbf_url": "https://download.geofabrik.de/south-america/chile-latest.osm.pbf"
+    },
+    {
+      "region": "belarus",
+      "country": "belarus",
+      "pbf_url": "https://download.geofabrik.de/europe/belarus-latest.osm.pbf"
+    }
+  ]
+}
