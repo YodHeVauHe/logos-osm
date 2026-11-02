@@ -2,9 +2,9 @@
 
 **Submitted by:** [YodHeVauHe](https://github.com/YodHeVauHe) · **Prize:** [LP-0018](docs/LP-0018.md) · **License:** [MIT](LICENSE-MIT) OR [Apache-2.0](LICENSE-APACHE)
 
-[![CI workflow badge](https://github.com/YodHeVauHe/logos-osm/actions/workflows/ci.yml/badge.svg)](https://github.com/YodHeVauHe/logos-osm/actions/workflows/ci.yml) · **CI evidence:** GitHub Actions is green on `main` ([run 41095317888](https://github.com/YodHeVauHe/logos-osm/actions/runs/41095317888): Rust on Ubuntu and Windows, LEZ v0.3.1 chain e2e, and Nix module/app builds). A testnet v0.3 practice deployment is recorded under [Program IDs](#program-ids). The testnet 0.4 deployment, catalog publication, and adoption evidence are pending owner actions.
+[![CI workflow badge](https://github.com/YodHeVauHe/logos-osm/actions/workflows/ci.yml/badge.svg)](https://github.com/YodHeVauHe/logos-osm/actions/workflows/ci.yml) · **CI evidence:** GitHub Actions is green on `main` ([run 41095317888](https://github.com/YodHeVauHe/logos-osm/actions/runs/41095317888): Rust on Ubuntu and Windows, LEZ v0.3.1 chain e2e, and Nix module/app builds). A testnet v0.3 practice deployment is recorded under [Program IDs](#program-ids). Both modules are published in the [Logos module catalog](docs/catalog.md) (linux-amd64). The testnet 0.4 deployment and adoption evidence are pending owner actions.
 
-`logos-osm` provides a registry and tools for distributing Geofabrik OpenStreetMap PBF snapshots through Logos. The registry guest targets LEZ v0.3.1's plan/apply API and stores its Borsh registry in a public PDA shard owned by the deployed program account. The repository also includes a Rust SDK, CLI, C FFI, Basecamp core module, and QML app. A practice deployment on public testnet v0.3 is recorded below. No testnet 0.4 deployment, catalog release, or ecosystem adoption is claimed.
+`logos-osm` provides a registry and tools for distributing Geofabrik OpenStreetMap PBF snapshots through Logos. The registry guest targets LEZ v0.3.1's plan/apply API and stores its Borsh registry in a public PDA shard owned by the deployed program account. The repository also includes a Rust SDK, CLI, C FFI, Basecamp core module, and QML app. A practice deployment on public testnet v0.3 is recorded below. The `osm` and `osm-app` modules are published in a Logos module catalog for linux-amd64: `https://raw.githubusercontent.com/YodHeVauHe/logos-osm-modules/main/logos-repo.json`. No testnet 0.4 deployment or ecosystem adoption is claimed.
 
 ## Contents
 
@@ -152,7 +152,7 @@ Status is based on repository artifacts, local commands, and the green `main` CI
 | Logos Storage host-query-download roundtrip | Storage upload-download passed against one local `storage_module` 3.0.2 node via logosctl 0.3.2; 3,507,206-byte Andorra PBF reproduced with matching MD5 and SHA-256. Registry query and multi-node transfer are not part of this result. | [`osm_sdk/src/storage.rs`](osm_sdk/src/storage.rs), [SDK storage configuration](docs/sdk.md) |
 | Logos testnet v0.3 practice deployment (not 0.4) | Deployed; init and one-entry register/read-back smoke test passed on the public testnet | [Program IDs](#testnet-v03-practice-deployment-not-the-04-deployment-lp-0018-requires) |
 | Logos testnet 0.4 deployment | Pending operator action | No testnet 0.4 program header account ID or registry PDA recorded |
-| Module catalog publication | Pending | Procedure in [`docs/catalog.md`](docs/catalog.md); no catalog URL recorded |
+| Module catalog publication | Done (linux-amd64) | [`logos-repo.json`](https://raw.githubusercontent.com/YodHeVauHe/logos-osm-modules/main/logos-repo.json); details in [`docs/catalog.md`](docs/catalog.md) |
 | Adoption and coverage evidence | Pending | Owner checklist below; no public consumer or hosted coverage evidence recorded |
 
 ## FURPS Self-Assessment
@@ -164,7 +164,7 @@ The criterion-by-criterion assessment is in [`docs/furps.md`](docs/furps.md). It
 - Storage roundtrip evidence is a single-node local upload-download only; no multi-node transfer or registry query was exercised in that roundtrip.
 - GitHub Actions is green on `main` ([run 41095317888](https://github.com/YodHeVauHe/logos-osm/actions/runs/41095317888)), including the Nix builds of the `osm` module and `osm-app`. Interactive Basecamp use is not yet verified.
 - The testnet v0.3 practice deployment is complete. The required testnet 0.4 deployment and registry initialization remain pending.
-- Real Geofabrik snapshots hosted in Logos Storage, at least 15 covered countries and 25 verified entries, catalog releases, and five independent consumers (including three Basecamp UI apps) require owner evidence.
+- Real Geofabrik snapshots hosted in Logos Storage, at least 15 covered countries and 25 verified entries, and five independent consumers (including three Basecamp UI apps) require owner evidence.
 - A draft solution PR is open at [logos-co/lambda-prize#187](https://github.com/logos-co/lambda-prize/pull/187); it will be updated with the testnet 0.4 deployment and adoption evidence.
 
 ## Supporting materials
@@ -173,7 +173,7 @@ The criterion-by-criterion assessment is in [`docs/furps.md`](docs/furps.md). It
 - [SDK guide and worked example](docs/sdk.md)
 - [FURPS self-assessment](docs/furps.md)
 - [Cycle methodology and localnet samples](docs/cycles.md)
-- [Module catalog procedure](docs/catalog.md)
+- [Module catalog](docs/catalog.md)
 - [Gap audit](docs/superpowers/specs/2026-10-29-lp0018-gap-audit.md)
 - [CI workflow](.github/workflows/ci.yml)
 
