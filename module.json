@@ -29,7 +29,7 @@
     {
       "name": "osm_consumer_example",
       "type": "core",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "path": "examples/basecamp-consumer",
       "manifest": "examples/basecamp-consumer/metadata.json",
       "flake_package": "osm-consumer-example",
