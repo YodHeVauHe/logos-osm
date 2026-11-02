@@ -19,7 +19,7 @@ jobs:
     name: rust (fmt, clippy, test)
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -114,8 +114,7 @@ jobs:
 
   nix:
     name: nix (Basecamp module + app)
-    # macOS produces dylibs, not .so — the vendored FFI build is Linux-only
-    # for now; macOS coverage is validated from source by the rust matrix.
+    # Linux build; the macOS (aarch64-darwin) build is the nix-darwin job.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -133,6 +132,44 @@ jobs:
         run: nix build .#osm-consumer-example
       - name: Build consumer example UI app
         run: nix build .#osm-consumer-app-install
+
+  nix-darwin:
+    name: nix macOS (Basecamp module + app, aarch64-darwin)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: DeterminateSystems/nix-installer-action@v13
+        with:
+          extra-conf: |
+            extra-substituters = https://cache.nix.logos.co/public
+            extra-trusted-public-keys = public:l4HrXgL4nw246+LBh2SOJyhz64BoGegOYLheT/iIAPU=
+      - name: Build FFI cdylib (libosm_ffi.dylib, vendored for the module)
+        run: |
+          cargo build --release -p osm_ffi
+          mkdir -p osm-module/lib
+          cp target/release/libosm_ffi.dylib osm-module/lib/
+          # Nix only sees git-tracked files in the flake source.
+          git add -f osm-module/lib/libosm_ffi.dylib
+      - name: Build osm core module
+        run: nix build .#osm-install -L
+      - name: Build osm-app QML module
+        run: nix build .#osm-app-install -L
+      - name: Build portable .lgx packages
+        run: |
+          nix build .#osm-lgx-portable -o lgx-osm
+          nix build .#osm-app-lgx-portable -o lgx-osm-app
+          mkdir -p dist
+          cp -L lgx-osm/*.lgx lgx-osm-app/*.lgx dist/
+          for f in dist/*.lgx; do echo "$f"; tar -tzf "$f" | grep variants/ | head -5; shasum -a 256 "$f"; done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lgx-darwin-arm64
+          path: dist/*.lgx
+      - uses: actions/upload-artifact@v4
+        with:
+          name: libosm_ffi-darwin-arm64
+          path: target/release/libosm_ffi.dylib
 
   live-geofabrik:
     name: live Geofabrik host (dispatch only)
