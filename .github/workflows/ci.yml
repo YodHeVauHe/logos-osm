@@ -36,6 +36,24 @@ jobs:
       - name: e2e (in-memory)
         run: cargo test -p osm_e2e --features e2e
 
+  cpp-tests:
+    name: cpp unit tests (osm module + osm-app helpers)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Qt 6 Core
+        run: sudo apt-get update && sudo apt-get install -y g++ pkg-config qt6-base-dev
+      - name: osm module (std-only)
+        run: |
+          g++ -std=c++17 -Wall -Wextra -o /tmp/osm_module_util_test osm-module/tests/osm_module_util_test.cpp
+          /tmp/osm_module_util_test
+      - name: osm-app (Qt)
+        run: |
+          for t in module_json_test local_path_test; do
+            g++ -std=c++17 -fPIC -Wall $(pkg-config --cflags Qt6Core) -o /tmp/$t osm-app/tests/$t.cpp $(pkg-config --libs Qt6Core)
+            /tmp/$t
+          done
+
   chain:
     name: chain (LEZ v0.3.1 sequencer, deploy, on-chain e2e)
     runs-on: ubuntu-latest

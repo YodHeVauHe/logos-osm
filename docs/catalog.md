@@ -14,13 +14,39 @@ https://raw.githubusercontent.com/YodHeVauHe/logos-osm-modules/main/logos-repo.j
 
 - Catalog repository: <https://github.com/YodHeVauHe/logos-osm-modules>
 - Index: <https://github.com/YodHeVauHe/logos-osm-modules/releases/download/index/index.json>
-- Releases: [`osm-v1.0.0`](https://github.com/YodHeVauHe/logos-osm-modules/releases/tag/osm-v1.0.0),
+- Current releases: [`osm-v1.0.2`](https://github.com/YodHeVauHe/logos-osm-modules/releases/tag/osm-v1.0.2),
+  [`osm-app-v1.0.2`](https://github.com/YodHeVauHe/logos-osm-modules/releases/tag/osm-app-v1.0.2)
+- Earlier releases: [`osm-v1.0.1`](https://github.com/YodHeVauHe/logos-osm-modules/releases/tag/osm-v1.0.1),
+  [`osm-app-v1.0.1`](https://github.com/YodHeVauHe/logos-osm-modules/releases/tag/osm-app-v1.0.1),
+  [`osm-v1.0.0`](https://github.com/YodHeVauHe/logos-osm-modules/releases/tag/osm-v1.0.0),
   [`osm-app-v1.0.0`](https://github.com/YodHeVauHe/logos-osm-modules/releases/tag/osm-app-v1.0.0)
 
 | Package | Version | Type | Variant | Size (bytes) | SHA-256 |
 |---|---|---|---|---|---|
+| `osm` | 1.0.2 | core | linux-amd64 | 6546944 | `9e410627533f931bf1daaf987f7df954a1c4cf3fad892f0f97df041cd8c9388c` |
+| `osm-app` | 1.0.2 | ui_qml | linux-amd64 | 4210934 | `b530b767fca7116ab6123c49420e95fed9b2f7b280acefc449c2169b3252d145` |
 | `osm` | 1.0.0 | core | linux-amd64 | 6555898 | `406704edbc167c8446814e5c963814a331c433486e3629621d50958353c99c16` |
 | `osm-app` | 1.0.0 | ui_qml | linux-amd64 | 4197008 | `264d6fe918c2d08cd725532d2955342b98a85d575bbc3f5da02943af9b1f24f6` |
+
+1.0.2 was built from the head of PR #12 (`fix/osm-app-download-path-json`,
+commit `6debd97`), not from `main`: the catalog's `submodules/logos-osm` is
+pinned to that commit (catalog commit `6e8b675`). It carries the Download
+path fix, escaped error replies and the consumer timeout. The sizes and
+SHA-256 values above are from the published `index.json`; the downloaded
+`.lgx` files hash to the same values.
+
+Download URLs:
+
+- <https://github.com/YodHeVauHe/logos-osm-modules/releases/download/osm-v1.0.2/osm-1.0.2.lgx>
+- <https://github.com/YodHeVauHe/logos-osm-modules/releases/download/osm-app-v1.0.2/osm-app-1.0.2.lgx>
+
+Check a download against the index:
+
+```sh
+curl -sSLO https://github.com/YodHeVauHe/logos-osm-modules/releases/download/osm-v1.0.2/osm-1.0.2.lgx
+curl -sSLO https://github.com/YodHeVauHe/logos-osm-modules/releases/download/osm-app-v1.0.2/osm-app-1.0.2.lgx
+sha256sum osm-1.0.2.lgx osm-app-1.0.2.lgx   # compare with the table above / index.json
+```
 
 Install with the Basecamp package manager by adding the catalog URL, or with
 `lgpd`:

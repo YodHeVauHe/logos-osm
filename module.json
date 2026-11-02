@@ -11,7 +11,7 @@
     {
       "name": "osm",
       "type": "core",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "path": "osm-module",
       "manifest": "osm-module/metadata.json",
       "flake_package": "osm-install",
@@ -20,7 +20,7 @@
     {
       "name": "osm-app",
       "type": "ui_qml",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "path": "osm-app",
       "manifest": "osm-app/metadata.json",
       "flake_package": "osm-app-install",
@@ -29,7 +29,7 @@
     {
       "name": "osm_consumer_example",
       "type": "core",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "path": "examples/basecamp-consumer",
       "manifest": "examples/basecamp-consumer/metadata.json",
       "flake_package": "osm-consumer-example",
