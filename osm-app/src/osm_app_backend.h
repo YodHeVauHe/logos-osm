@@ -35,6 +35,7 @@ protected:
 private:
     QJsonValue callModule(const char* method, const QJsonArray& args, QString* error = nullptr);
     void loadWhenReady(int attempt);
+    void applyEnvConfig();
 };
 
 #endif // OSM_APP_BACKEND_H

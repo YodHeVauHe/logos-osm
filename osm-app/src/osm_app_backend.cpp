@@ -3,6 +3,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QProcessEnvironment>
 #include <QTimer>
 
 #include "logos_api.h"
@@ -35,7 +36,27 @@ void OsmAppBackend::loadWhenReady(int attempt) {
         QTimer::singleShot(200, this, [this, attempt]() { loadWhenReady(attempt + 1); });
         return;
     }
+    applyEnvConfig();
     refresh();
+}
+
+// The osm module starts with an empty config, so registry lookups fail with
+// "config.program_id is required". Hand it the deployment from the same
+// environment variables the osm CLI reads; rpc_url, wallet_home and the
+// logosctl settings already fall back to their environment variables inside
+// the FFI.
+void OsmAppBackend::applyEnvConfig() {
+    const QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+    QJsonObject cfg;
+    const QString programId = env.value(QStringLiteral("OSM_PROGRAM_ID"));
+    if (!programId.isEmpty()) cfg.insert(QStringLiteral("program_id"), programId);
+    const QString cliBin = env.value(QStringLiteral("OSM_REGISTRY_CLI"));
+    if (!cliBin.isEmpty()) cfg.insert(QStringLiteral("cli_bin"), cliBin);
+    if (cfg.isEmpty()) return;
+    QString error;
+    callModule("setConfig",
+               {QString::fromUtf8(QJsonDocument(cfg).toJson(QJsonDocument::Compact))}, &error);
+    if (!error.isEmpty()) setStatus(error);
 }
 
 QJsonValue OsmAppBackend::callModule(const char* method, const QJsonArray& args, QString* error) {

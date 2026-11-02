@@ -83,7 +83,7 @@ ColumnLayout {
         id: statusLine
         Layout.fillWidth: true
         text: appBridge.status
-        color: appBridge.phase === "error" ? "#c0392b" : undefined
+        color: appBridge.phase === "error" ? "#c0392b" : palette.windowText
         elide: Text.ElideRight
     }
     Label {
