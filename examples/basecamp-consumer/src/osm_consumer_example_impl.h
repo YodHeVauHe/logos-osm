@@ -9,6 +9,10 @@
 class OsmConsumerExampleImpl : public LogosModuleContext
 {
 public:
+    /// Hand the osm module its deployment config (program_id, rpc_url, ...)
+    /// as a JSON object. Returns the osm module's JSON response.
+    std::string configure(const std::string& configJson);
+
     /// Return the OSM registry entry JSON for a predefined region, or null.
     std::string resolveRegion(const std::string& region);
 

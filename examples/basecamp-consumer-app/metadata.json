@@ -1,0 +1,34 @@
+{
+  "name": "osm-consumer-app",
+  "version": "1.0.0",
+  "description": "Minimal Basecamp UI app that uses the osm SDK through the osm_consumer_example module: resolve a region from the on-chain registry and download it with checksum verification.",
+  "author": "LP-0018",
+  "type": "ui_qml",
+  "interface": "universal",
+  "category": "example",
+  "icon": "src/icons/osm-consumer-app.png",
+  "main": "osm-consumer-app_plugin",
+  "backend": "module",
+  "view": "qml/Main.qml",
+  "dependencies": [
+    "osm_consumer_example"
+  ],
+  "codegen": {
+    "rep": "src/osm_consumer_app.rep",
+    "backend_class": "OsmConsumerAppBackend",
+    "backend_header": "osm_consumer_app_backend.h"
+  },
+  "nix": {
+    "packages": {
+      "build": [],
+      "runtime": []
+    },
+    "external_libraries": [],
+    "cmake": {
+      "find_packages": [],
+      "extra_sources": [],
+      "extra_include_dirs": [],
+      "extra_link_libraries": []
+    }
+  }
+}
