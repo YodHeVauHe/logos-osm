@@ -7,15 +7,17 @@ else()
     message(FATAL_ERROR "LogosModule.cmake not found. Set LOGOS_MODULE_BUILDER_ROOT.")
 endif()
 
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/metadata.json ${CMAKE_CURRENT_BINARY_DIR}/metadata.json COPYONLY)
+# The backend is built from metadata.json's name as the core module
+# `osm-app_backend` ("backend": "module").
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/metadata.json" METADATA_JSON)
+string(JSON MODULE_NAME GET ${METADATA_JSON} name)
 
 logos_module(
-    NAME osm-app
+    NAME ${MODULE_NAME}
     REP_FILE src/osm_app.rep
     SOURCES
-        src/osm_app_interface.h
-        src/osm_app_plugin.h
-        src/osm_app_plugin.cpp
+        src/osm_app_backend.h
+        src/osm_app_backend.cpp
         src/module_json.h
 )
 

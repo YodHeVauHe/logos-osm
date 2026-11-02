@@ -1,3 +1,4 @@
+import QtCore
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -16,6 +17,9 @@ ColumnLayout {
     spacing: 8
 
     // ── state ────────────────────────────────────────────────────────────
+    // Replica of the osm-app backend (osm_app.rep), served by the core
+    // module osm-app_backend. Null until Basecamp has connected it.
+    readonly property var appBridge: logos.module("osm-app")
     property var regionList: {
         try { return JSON.parse(appBridge.regions) } catch (e) { return [] }
     }

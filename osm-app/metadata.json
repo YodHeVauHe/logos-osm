@@ -4,11 +4,20 @@
   "description": "OSM distribution Basecamp app: browse predefined regions, host/import PBF snapshots into Logos Storage, download verified files, track updates.",
   "author": "LP-0018",
   "type": "ui_qml",
+  "interface": "universal",
   "category": "ui",
-  "icon": "assets/icon.png",
+  "icon": "src/icons/osm-app.png",
   "main": "osm-app_plugin",
+  "backend": "module",
   "view": "qml/Main.qml",
-  "dependencies": ["osm"],
+  "dependencies": [
+    "osm"
+  ],
+  "codegen": {
+    "rep": "src/osm_app.rep",
+    "backend_class": "OsmAppBackend",
+    "backend_header": "osm_app_backend.h"
+  },
   "nix": {
     "packages": {
       "build": [],
