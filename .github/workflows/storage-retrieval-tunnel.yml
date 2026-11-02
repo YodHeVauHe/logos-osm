@@ -3,7 +3,8 @@ name: storage-retrieval-tunnel
 # Retrieval by an independent node. A fresh Logos Storage node on a GitHub
 # runner (empty data dir) exposes its libp2p TCP port through a Cloudflare
 # quick tunnel (WebSocket, bridged with websocat). The hosting node, which sits
-# behind NAT with HTTPS-only egress, dials the runner through that tunnel
+# behind NAT with HTTPS-only egress, dials the runner through that tunnel by
+# bootstrapping from the runner's SPR, which advertises 127.0.0.1:<port>
 # (tools/storage_tunnel_peer.sh). The runner then reads the OSM registry from
 # the public testnet v0.3 RPC (no keys), downloads the region by its on-chain
 # CID through Logos Storage, and compares the MD5 with the on-chain checksum.
@@ -53,7 +54,9 @@ jobs:
           chmod +x "$RUNNER_TEMP/bin/"*
       - name: Start a fresh Storage node
         run: |
-          STORAGE_LISTEN_PORT="$LISTEN_PORT" tools/coverage.sh node
+          # Advertise the loopback address: the hosting node reaches this port
+          # through its own local end of the tunnel, at the same port number.
+          STORAGE_LISTEN_PORT="$LISTEN_PORT" STORAGE_NAT=extip:127.0.0.1 tools/coverage.sh node
           sleep 20
           "$CTL" --config-dir "$LOGOSCTL_CONFIG_DIR" call storage_module debug | python3 -c 'import json,sys; v=json.load(sys.stdin)["result"]["value"]; print("peer", v.get("id")); print("addrs", v.get("addrs"))'
       - name: Expose the libp2p port through a Cloudflare quick tunnel
@@ -66,8 +69,9 @@ jobs:
           done
           [ -n "$url" ] || { cat "$RUNNER_TEMP/cloudflared.log"; exit 1; }
           peer="$("$CTL" --config-dir "$LOGOSCTL_CONFIG_DIR" call storage_module peerId | python3 -c 'import json,sys; print(json.load(sys.stdin)["result"]["value"])')"
+          spr="$("$CTL" --config-dir "$LOGOSCTL_CONFIG_DIR" call storage_module spr | python3 -c 'import json,sys; print(json.load(sys.stdin)["result"]["value"])')"
           mkdir -p "$RUNNER_TEMP/tunnel-info"
-          python3 -c 'import json,sys; print(json.dumps({"wss": sys.argv[1].replace("https://","wss://",1), "peer": sys.argv[2], "run_id": sys.argv[3]}))' "$url" "$peer" "$GITHUB_RUN_ID" | tee "$RUNNER_TEMP/tunnel-info/tunnel.json"
+          python3 -c 'import json,sys; print(json.dumps({"wss": sys.argv[1].replace("https://","wss://",1), "peer": sys.argv[2], "spr": sys.argv[3], "port": int(sys.argv[4]), "run_id": sys.argv[5]}))' "$url" "$peer" "$spr" "$LISTEN_PORT" "$GITHUB_RUN_ID" | tee "$RUNNER_TEMP/tunnel-info/tunnel.json"
       - uses: actions/upload-artifact@v4
         with:
           name: tunnel-info
