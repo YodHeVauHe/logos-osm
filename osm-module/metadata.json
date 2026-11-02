@@ -1,7 +1,7 @@
 {
   "name": "osm",
   "display_name": "OSM Registry",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "type": "core",
   "interface": "universal",
   "category": "maps",
