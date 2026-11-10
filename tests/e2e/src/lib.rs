@@ -1,6 +1,6 @@
 //! End-to-end integration test: host (fetch → store → register) → query →
 //! download, against a real sequencer when one is running (`LEZ_LOCALNET=1`
-//! — CI starts the LEZ v0.3.1 standalone sequencer and wallet), or fully
+//! — CI starts the LEZ v0.4 standalone sequencer and wallet), or fully
 //! in-memory otherwise.
 //!
 //! Geofabrik is simulated with a wiremock server carrying a deterministic

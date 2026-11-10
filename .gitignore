@@ -15,3 +15,6 @@ __pycache__
 lmb.md
 
 .scaffold/
+
+# tools/deploy_registry.sh output (holds private account-creation logs)
+/deploy/

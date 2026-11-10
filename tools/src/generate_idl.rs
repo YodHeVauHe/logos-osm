@@ -10,13 +10,13 @@ fn main() {
         "name": "registry",
         "address": "AccountId::for_public_pda(program_account_id, PdaSeed([\"registry\", 0x00 x 24]))",
         "owner": "deployed registry program account",
-        "kind": "public shard; writable",
+        "kind": "public PDA; this program's actor state; writable",
         "signer": false
     });
     let result: Value = json!({
         "name": "osm_registry",
-        "version": "0.3.1",
-        "runtime": "LEZ plan/apply",
+        "version": "0.4.0-rc1",
+        "runtime": "LEZ actor (actor_entrypoint)",
         "encoding": "borsh",
         "instruction_enum_discriminants": {"init_registry": 0, "register_region": 1, "register_batch": 2},
         "accounts": [account],
@@ -34,7 +34,7 @@ fn main() {
             {"code": 9, "name": "E_BAD_PARENT"}, {"code": 10, "name": "E_BAD_REGION_ID"},
             {"code": 11, "name": "E_BAD_CID"}, {"code": 12, "name": "E_BAD_SOURCE_URL"}
         ],
-        "read": "fetch the registry account and decode account.data.shard(program_account_id) as osm_registry_core::Registry"
+        "read": "fetch the registry account and decode account.data.actor_state(program_account_id) as osm_registry_core::Registry"
     });
     println!("{}", serde_json::to_string_pretty(&result).unwrap());
 }

@@ -1,9 +1,18 @@
 # Cycle count methodology
 
-The LEZ v0.3.1 guest reads `risc0_zkvm::guest::env::cycle_count()` around registry planning and logs:
+The LEZ v0.4 guest reads `risc0_zkvm::guest::env::cycle_count()` around the whole message handler (validation and the registry update) and logs:
 
 - `CU register_region entries=1 cycles=N`
 - `CU register_batch entries=N cycles=N`
+
+## LEZ v0.4.0-rc1 localnet sample
+
+Captured on 2026-11-10 with the passing `tools/run_localnet_registry_e2e.sh` run against the standalone LEZ v0.4.0-rc1 sequencer in RISC Zero dev mode (guest image `2f42e339e9abd8fe6018e71134fd2c01bb972d17b5d0940b2ec663c58bf8425d`). Both logged copies agreed. These cover validation plus apply, so they are not directly comparable with the v0.3.1 numbers below, which covered planning only.
+
+| Operation | Input | Guest cycles (v0.4.0-rc1) |
+|---|---:|---:|
+| `register_region` | 1 entry (Germany) | 3,432 |
+| `register_batch` | 2 entries (Germany and Kenya) | 10,004 |
 
 ## LEZ v0.3.1 localnet sample
 
@@ -29,4 +38,4 @@ The pre-port guest ProgramId was `8fd44f40975a635ba9c4a2fb8f91118c0cfcc060831e1a
 
 ## Reproduction
 
-Build with `make build`, deploy the produced ProgramBinary using the LEZ v0.3.1 wallet's `program-loader deploy`, then run `tools/run_localnet_registry_e2e.sh` with the LEZ wallet and sequencer binaries configured. The script enables `RISC0_DEV_MODE=1` and prints the sequencer's cycle output after a successful run.
+Build with `make build`, deploy the produced ProgramBinary using the LEZ v0.4 wallet's `program-loader deploy`, then run `tools/run_localnet_registry_e2e.sh` with the LEZ wallet and sequencer binaries configured. The script enables `RISC0_DEV_MODE=1` and prints the sequencer's cycle output after a successful run.

@@ -30,8 +30,9 @@ idl:
 cli:
 	$(RUST_ENV) cargo build --manifest-path examples/Cargo.toml --bin osm_registry_cli
 
+# Day-one deploy: make deploy RPC_URL=https://testnet.lez.logos.co PAYER=<funded account id>
 deploy:
-	@echo "Use the v0.3.1 wallet: wallet program-loader deploy --elf $(GUEST_BIN) --header <public-account> --segments <public-account>... --immutable --payer <funded-account>"
+	tools/deploy_registry.sh --rpc-url "$(RPC_URL)" --payer "$(PAYER)"
 
 inspect:
 	@echo "ProgramId is printed by the wrapper during make build."

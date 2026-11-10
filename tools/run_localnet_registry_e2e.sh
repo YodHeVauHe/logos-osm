@@ -1,13 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Run a deployed registry against the LEZ v0.3.1 standalone sequencer.
+# Run a deployed registry against the LEZ v0.4 standalone sequencer.
 # Wallet output is captured because `account new` includes a recovery phrase.
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 LEZ_ROOT=${LEZ_ROOT:-/tmp/lez}
 WALLET_BIN=${LEZ_WALLET_BIN:-$LEZ_ROOT/target/debug/wallet}
 SEQUENCER_BIN=${LEZ_SEQUENCER_BIN:-$LEZ_ROOT/target/debug/sequencer_service}
 RPC_URL=${OSM_RPC_URL:-http://127.0.0.1:3040}
+# The local Bedrock funding key from LEZ's Justfile; standalone mode mocks Bedrock.
+BEDROCK_FUNDING_PUBLIC_KEY=2e03b2eff5a45478e7e79668d2a146cf2c5c7925bce927f2b1c67f2ab4fc0d26
 TMP_HOME=$(mktemp -d "${TMPDIR:-/tmp}/osm-lez-e2e.XXXXXX")
 chmod 700 "$TMP_HOME"
 cleanup() {
@@ -23,46 +25,59 @@ mkdir -p "$TMP_HOME/wallet"
 cp "$LEZ_ROOT/lez/wallet/configs/debug/wallet_config.json" "$TMP_HOME/wallet/wallet_config.json"
 cp "$TMP_HOME/wallet/wallet_config.json" "$TMP_HOME/wallet/config.json"
 export LEE_WALLET_HOME_DIR="$TMP_HOME/wallet"
+# v0.4 wallets ask for a storage password; empty keeps this throwaway wallet unencrypted.
+export LEE_WALLET_PASSWORD=""
 
+# Prints "<account id> <public key hex>" for a new public account.
 new_account() {
   local log_path="$TMP_HOME/account-$1.log"
-  "$WALLET_BIN" account new public --label "lp0018-$1" >"$log_path" 2>&1
+  "$WALLET_BIN" account new public --label "lp0018-$1" >"$log_path" 2>&1 || { grep -v -i "recovery\|mnemonic" "$log_path" >&2; exit 1; }
   python3 - "$log_path" <<'PY'
 import re, sys
 text = open(sys.argv[1], encoding="utf-8").read()
 match = re.search(r"Generated new account with account_id Public/([1-9A-HJ-NP-Za-km-z]+)", text)
-if not match:
-    raise SystemExit("wallet did not report a generated public account")
-print(match.group(1))
+key = re.search(r"With pk ([0-9a-f]{64})", text)
+if not match or not key:
+    raise SystemExit("wallet did not report a generated public account and key")
+print(match.group(1), key.group(1))
 PY
 }
 
-PAYER=$(new_account payer)
-HEADER=$(new_account header)
+read -r PAYER PAYER_KEY < <(new_account payer)
+read -r HEADER _ < <(new_account header)
 SEGMENTS=()
-for index in 1 2 3 4; do SEGMENTS+=("$(new_account "segment-$index")"); done
+for index in 1 2 3 4; do read -r seg _ < <(new_account "segment-$index"); SEGMENTS+=("$seg"); done
 
-python3 - "$LEZ_ROOT/lez/sequencer/service/configs/debug/sequencer_config.json" "$TMP_HOME/sequencer.json" "$TMP_HOME/sequencer" "$PAYER" <<'PY'
+# Fund the throwaway payer at genesis (v0.4: deposit recipient by public key).
+python3 - "$LEZ_ROOT/lez/sequencer/service/networks/local.json" "$TMP_HOME/local.json" "$PAYER_KEY" <<'PY'
 import json, sys
 config = json.load(open(sys.argv[1], encoding="utf-8"))
-config["home"] = sys.argv[3]
-config["genesis"].append({"supply_account": {"account_id": sys.argv[4], "balance": 10000000000000}})
+config["genesis"]["actions"].append({"supply_account": {
+    "recipient": {"identified": {"key": sys.argv[3]}}, "balance": 10000000000000}})
 json.dump(config, open(sys.argv[2], "w", encoding="utf-8"))
 PY
 
-# This config is local-only; the funded throwaway payer is supplied at genesis.
-"$SEQUENCER_BIN" "$TMP_HOME/sequencer.json" --listen-address 127.0.0.1 >"$TMP_HOME/sequencer.log" 2>&1 &
+# This config is local-only.
+"$SEQUENCER_BIN" setup "$TMP_HOME/sequencer" --config "$TMP_HOME/local.json" \
+  --funding-public-key "$BEDROCK_FUNDING_PUBLIC_KEY" --create-channel >"$TMP_HOME/setup.log" 2>&1 || { cat "$TMP_HOME/setup.log"; exit 1; }
+RUST_LOG=${RUST_LOG:-info,risc0_zkvm=warn,kameo=warn} "$SEQUENCER_BIN" start "$TMP_HOME/sequencer" \
+  --rpc-listen-address 127.0.0.1:3040 >"$TMP_HOME/sequencer.log" 2>&1 &
 SEQUENCER_PID=$!
-for _ in $(seq 1 90); do
+for _ in $(seq 1 120); do
   if "$WALLET_BIN" chain-info current-block-id >/dev/null 2>&1; then break; fi
   kill -0 "$SEQUENCER_PID" 2>/dev/null || { cat "$TMP_HOME/sequencer.log"; exit 1; }
   sleep 1
+done
+# Genesis credits land in the first blocks; wait until the payer is funded.
+for _ in $(seq 1 60); do
+  if "$WALLET_BIN" account get --account-id "Public/$PAYER" 2>/dev/null | grep -qiE '"?balance"?: *[1-9]'; then break; fi
+  sleep 2
 done
 
 "$WALLET_BIN" program-loader deploy \
   --elf "$ROOT/methods/guest/target/riscv32im-risc0-zkvm-elf/osm_registry.bin" \
   --header "Public/$HEADER" --segments "${SEGMENTS[@]/#/Public/}" \
-  --immutable --payer "Public/$PAYER" >"$TMP_HOME/deploy.log" 2>&1
+  --immutable --payer "Public/$PAYER" >"$TMP_HOME/deploy.log" 2>&1 || { cat "$TMP_HOME/deploy.log"; tail -n 100 "$TMP_HOME/sequencer.log"; exit 1; }
 
 cd "$ROOT"
 make cli

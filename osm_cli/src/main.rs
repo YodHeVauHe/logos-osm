@@ -29,7 +29,7 @@ struct Cli {
     #[arg(long, global = true, env = "OSM_SIGNER")]
     signer: Option<String>,
 
-    /// LEZ v0.3.1 sequencer RPC URL.
+    /// LEZ v0.4 sequencer RPC URL.
     #[arg(long, global = true, env = "OSM_RPC_URL")]
     rpc_url: Option<String>,
 

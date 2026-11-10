@@ -10,9 +10,9 @@ path = "src/bin/osm_registry_cli.rs"
 
 [dependencies]
 anyhow = "1"
-lee_core = { git = "https://github.com/logos-blockchain/logos-execution-zone.git", tag = "v0.3.1", features = ["host"] }
-wallet = { git = "https://github.com/logos-blockchain/logos-execution-zone.git", tag = "v0.3.1" }
-sequencer_service_rpc = { git = "https://github.com/logos-blockchain/logos-execution-zone.git", tag = "v0.3.1", features = ["client"] }
+lee_core = { git = "https://github.com/logos-blockchain/logos-execution-zone.git", tag = "v0.4.0-rc1", features = ["host"] }
+wallet = { git = "https://github.com/logos-blockchain/logos-execution-zone.git", tag = "v0.4.0-rc1" }
+sequencer_service_rpc = { git = "https://github.com/logos-blockchain/logos-execution-zone.git", tag = "v0.4.0-rc1", features = ["client"] }
 osm_registry_core = { path = "../osm_registry_core" }
 borsh = { version = "1", features = ["derive"] }
 clap = { version = "4", features = ["derive", "env"] }
