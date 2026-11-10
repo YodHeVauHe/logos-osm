@@ -4,7 +4,7 @@ use borsh::{BorshDeserialize, BorshSerialize};
 use clap::{Parser, Subcommand};
 use lee_core::{account::AccountId, program::PdaSeed};
 use osm_registry_core::{RegionEntry, Registry};
-use sequencer_service_rpc::RpcClient as _;
+use sequencer_service_rpc::{RpcClient as _, SequencerClient};
 use wallet::{
     config::{SequencerConnectionData, WalletConfigOverrides},
     AccountIdentity, WalletCore,
@@ -43,7 +43,7 @@ fn check_payer_can_fund(balance: u128, reserve: u128, gas_limit: u64) -> anyhow:
 }
 
 #[derive(Parser)]
-#[command(about = "Submit OSM registry transactions to a LEZ v0.3.1 sequencer")]
+#[command(about = "Submit OSM registry transactions to a LEZ v0.4 sequencer")]
 struct Args {
     #[arg(long, env = "OSM_RPC_URL")]
     rpc_url: Option<String>,
@@ -52,7 +52,7 @@ struct Args {
     /// Execution gas limit declared on each transaction. The sequencer reserves
     /// `gas_limit * base_fee_exec` from the payer up front, so a payer holding
     /// less than that is turned away with "Incorrect fee" even when the actual
-    /// cost would fit. Defaults to the wallet config (2,000,000 in v0.3.1).
+    /// cost would fit. Defaults to the wallet config's `gas_limit`.
     #[arg(long, env = "OSM_GAS_LIMIT")]
     gas_limit: Option<u64>,
     /// Blocks to poll for inclusion before giving up (wallet default: 5, which
@@ -88,6 +88,13 @@ enum Command {
     Pda,
 }
 
+/// The registry PDA seed: `b"registry"` followed by 24 zero bytes.
+fn registry_seed() -> PdaSeed {
+    let mut bytes = [0; 32];
+    bytes[..8].copy_from_slice(b"registry");
+    PdaSeed::new(bytes)
+}
+
 #[derive(Clone, BorshSerialize, BorshDeserialize)]
 enum Instruction {
     InitRegistry,
@@ -100,17 +107,16 @@ async fn main() -> anyhow::Result<()> {
     let args = Args::parse();
     let program_id = AccountId::from_str(&args.program_id)?;
     let wallet = wallet(&args.rpc_url, args.gas_limit, args.poll_blocks)?;
-    let seed = PdaSeed::new({
-        let mut bytes = [0; 32];
-        bytes[..8].copy_from_slice(b"registry");
-        bytes
-    });
-    let registry_id = AccountId::for_public_pda(&program_id, &seed);
+    let registry_id = AccountId::for_public_pda(&program_id, &registry_seed());
 
     match args.command {
         Command::Get { raw } => {
+            // v0.4: the registry is this program's actor state on the PDA.
             let account = wallet.get_account_public(registry_id).await?;
-            let bytes = account.data.shard(program_id);
+            let bytes: &[u8] = account
+                .as_ref()
+                .map(|account| account.data.actor_state(program_id).as_ref())
+                .unwrap_or_default();
             if bytes.is_empty() {
                 println!("null");
             } else if raw {
@@ -164,9 +170,11 @@ fn wallet(
     rpc_url: &Option<String>,
     gas_limit: Option<u64>,
     poll_blocks: usize,
-) -> anyhow::Result<WalletCore> {
-    let config = wallet::helperfunctions::fetch_config_path()?;
-    let storage = wallet::helperfunctions::fetch_persistent_storage_path()?;
+) -> anyhow::Result<WalletCore<SequencerClient>> {
+    let config = wallet::utils::fetch_config_path()?;
+    let storage = wallet::utils::fetch_persistent_storage_path()?;
+    // v0.4 wallets may be password-encrypted (`LEE_WALLET_PASSWORD`).
+    let password = wallet::utils::read_password(&storage)?;
     let sequencer = rpc_url
         .as_ref()
         .map(|url| -> anyhow::Result<_> {
@@ -182,11 +190,11 @@ fn wallet(
         seq_tx_poll_max_blocks: Some(poll_blocks),
         ..Default::default()
     };
-    WalletCore::new_update_chain(config, storage, Some(overrides))
+    WalletCore::new_update_chain(config, storage, Some(overrides), &password)
 }
 
 async fn send(
-    wallet: &WalletCore,
+    wallet: &WalletCore<SequencerClient>,
     program_id: AccountId,
     registry_id: AccountId,
     payer: &str,
@@ -208,9 +216,17 @@ async fn send(
         "fee preflight: payer balance {balance_before}, reserve ~{reserve} (gas limit {gas_limit})"
     );
     check_payer_can_fund(balance_before, reserve, gas_limit)?;
-    let account = AccountIdentity::PublicNoSign(registry_id).select_program_shard(program_id);
+    // v0.4 actor model: one message to the registry actor (PDA, program).
+    // `PublicPda` attaches the PDA admission evidence a fresh registry account
+    // needs; without it the sequencer reverts the call on an unknown account.
+    let actor = AccountIdentity::PublicPda {
+        program: program_id,
+        seed: registry_seed(),
+    }
+    .select_program_actor_state(program_id);
+    debug_assert_eq!(actor.identity.account_id(), registry_id);
     let hash = wallet
-        .send_pub_tx_paid_by(vec![account], instruction_data, program_id, Some(payer))
+        .send_pub_tx_paid_by(vec![actor], 0, instruction_data, Some(payer))
         .await?;
     println!("Submitted: {hash:?}");
     wallet.poll_transaction(hash).await?;

@@ -2,7 +2,7 @@
   "accounts": [
     {
       "address": "AccountId::for_public_pda(program_account_id, PdaSeed([\"registry\", 0x00 x 24]))",
-      "kind": "public shard; writable",
+      "kind": "public PDA; this program's actor state; writable",
       "name": "registry",
       "owner": "deployed registry program account",
       "signer": false
@@ -97,8 +97,8 @@
     }
   ],
   "name": "osm_registry",
-  "read": "fetch the registry account and decode account.data.shard(program_account_id) as osm_registry_core::Registry",
-  "runtime": "LEZ plan/apply",
+  "read": "fetch the registry account and decode account.data.actor_state(program_account_id) as osm_registry_core::Registry",
+  "runtime": "LEZ actor (actor_entrypoint)",
   "types": [
     {
       "fields": {
@@ -117,5 +117,5 @@
       "name": "RegionEntry"
     }
   ],
-  "version": "0.3.1"
+  "version": "0.4.0-rc1"
 }

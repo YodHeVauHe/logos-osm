@@ -82,7 +82,12 @@ def read_registry(rpc, pda, program_id):
         reply = json.load(resp)
     if "error" in reply:
         raise RuntimeError(f"getAccount: {reply['error']}")
-    shard = reply["result"]["data"]["shards"].get(program_id)
+    data = reply["result"]["data"]
+    # LEZ v0.4 keys program data by `actor_states`; v0.3 called them `shards`.
+    states = data.get("actor_states", data.get("shards", {}))
+    shard = states.get(program_id)
+    if isinstance(shard, str):
+        shard = bytes.fromhex(shard)
     if not shard:
         raise RuntimeError(f"registry account {pda} has no data for program {program_id}")
     return decode_registry(shard)

@@ -63,7 +63,7 @@ jobs:
           done
 
   chain:
-    name: chain (LEZ v0.3.1 sequencer, deploy, on-chain e2e)
+    name: chain (LEZ v0.4.0-rc1 sequencer, deploy, on-chain e2e)
     runs-on: ubuntu-latest
     env:
       # Smaller debug target dirs for the LEZ and registry builds.
@@ -94,15 +94,14 @@ jobs:
           libclang="$(find /usr/lib/llvm-*/lib -maxdepth 1 -name 'libclang.so*' | sort -V | tail -n 1)"
           test -n "$libclang"
           echo "LIBCLANG_PATH=$(dirname "$libclang")" >> "$GITHUB_ENV"
-      - name: Checkout LEZ v0.3.1
-        run: git clone --depth 1 --branch v0.3.1 https://github.com/logos-blockchain/logos-execution-zone.git "$LEZ_DIR"
-      - name: Build LEZ v0.3.1 sequencer and wallet
+      - name: Checkout LEZ v0.4.0-rc1
+        run: git clone --depth 1 --branch v0.4.0-rc1 https://github.com/logos-blockchain/logos-execution-zone.git "$LEZ_DIR"
+      - name: Build LEZ v0.4.0-rc1 sequencer and wallet
         working-directory: ${{ runner.temp }}/lez
         env:
           BINDGEN_EXTRA_CLANG_ARGS: -I/usr/include
         run: |
-          cargo build --features standalone -p sequencer_service
-          cargo build -p wallet
+          cargo build --features sequencer_service/standalone -p sequencer_service -p wallet
       - name: Install RISC Zero guest toolchain
         run: |
           curl -L https://risczero.com/install | bash
@@ -124,7 +123,7 @@ jobs:
           OSM_TOOLS_DIR="$RUNNER_TEMP/tools" SKIP_BUILD=1 tools/coverage.sh setup
       - name: Start a local Logos Storage node on the runner
         run: tools/coverage.sh node
-      - name: Deploy and exercise registry + real Storage on LEZ v0.3.1
+      - name: Deploy and exercise registry + real Storage on LEZ v0.4.0-rc1
         env:
           OSM_E2E_STORAGE: "1"
           LEZ_ROOT: ${{ runner.temp }}/lez

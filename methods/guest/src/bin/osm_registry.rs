@@ -1,9 +1,7 @@
 use borsh::{BorshDeserialize, BorshSerialize};
-#[cfg(test)]
-use lee_core::program::AccountMeta;
 use lee_core::{
-    account::{AccountId, ShardData},
-    program::{run_program, PdaSeed, Plan, PlanInput},
+    account::AccountId,
+    program::{PdaSeed, ReceiveInput, Response},
 };
 use osm_registry_core::{
     validate_entry, RegionEntry, Registry, E_BAD_TIMESTAMP, E_BATCH_TOO_BIG, E_DESERIALIZE,
@@ -17,16 +15,9 @@ enum Instruction {
     RegisterBatch { entries: Vec<RegionEntry> },
 }
 
-#[derive(Clone, Debug, BorshSerialize, BorshDeserialize)]
-enum Effect {
-    InitRegistry,
-    RegisterRegion(RegionEntry),
-    RegisterBatch { entries: Vec<RegionEntry> },
-}
-
-fn main() {
-    run_program(plan, apply)
-}
+// LEZ v0.4 actor model: the registry lives in this program's actor state on
+// the registry PDA account. Every message goes to that one actor.
+lee_core::actor_entrypoint!(handle_message);
 
 fn registry_account_id(program: AccountId) -> AccountId {
     let mut seed = [0; 32];
@@ -34,62 +25,39 @@ fn registry_account_id(program: AccountId) -> AccountId {
     AccountId::for_public_pda(&program, &PdaSeed::new(seed))
 }
 
-#[cfg(test)]
-fn registry_meta(program: AccountId) -> AccountMeta {
-    AccountMeta::new(registry_account_id(program), false, program)
-}
-
-fn plan(input: &PlanInput, instruction: Instruction) -> Plan {
+fn handle_message(input: &ReceiveInput, instruction: Instruction) -> Response {
     #[cfg(not(test))]
     let start = risc0_zkvm::guest::env::cycle_count();
-    let code = validate_instruction(input, &instruction);
-    if let Err(code) = code {
+    if let Err(code) = validate_instruction(input, &instruction) {
         fail(code, "invalid instruction or registry account");
     }
-    let [registry] = input.accounts.as_slice() else {
-        fail(E_DESERIALIZE, "expected registry account");
-    };
-    let effect = match instruction {
-        Instruction::InitRegistry => Effect::InitRegistry,
-        Instruction::RegisterRegion(entry) => Effect::RegisterRegion(entry),
-        Instruction::RegisterBatch { entries } => Effect::RegisterBatch { entries },
-    };
-    let mut plan = Plan::new(input);
-    plan.effect(registry, &effect);
     #[cfg(not(test))]
-    {
-        let count = match &effect {
-            Effect::InitRegistry => 0,
-            Effect::RegisterRegion(_) => 1,
-            Effect::RegisterBatch { entries } => entries.len(),
-        };
-        if count > 0 {
-            risc0_zkvm::guest::env::log(&format!(
-                "CU register_{} entries={} cycles={}",
-                if count == 1 && matches!(effect, Effect::RegisterRegion(_)) {
-                    "region"
-                } else {
-                    "batch"
-                },
-                count,
-                risc0_zkvm::guest::env::cycle_count() - start
-            ));
-        }
+    let count = match &instruction {
+        Instruction::InitRegistry => 0,
+        Instruction::RegisterRegion(_) => 1,
+        Instruction::RegisterBatch { entries } => entries.len(),
+    };
+    #[cfg(not(test))]
+    let single = matches!(instruction, Instruction::RegisterRegion(_));
+    let response = match apply(instruction, &input.pre_state) {
+        Some(bytes) => Response::set_state(bytes),
+        None => Response::keep_state(),
+    };
+    #[cfg(not(test))]
+    if count > 0 {
+        risc0_zkvm::guest::env::log(&format!(
+            "CU register_{} entries={} cycles={}",
+            if single { "region" } else { "batch" },
+            count,
+            risc0_zkvm::guest::env::cycle_count() - start
+        ));
     }
-    #[cfg(test)]
-    let _ = instruction;
-    #[cfg(not(test))]
-    let _ = start;
-    plan
+    response
 }
 
-fn validate_instruction(input: &PlanInput, instruction: &Instruction) -> Result<(), u32> {
-    let [registry] = input.accounts.as_slice() else {
-        return Err(E_DESERIALIZE);
-    };
-    if registry.account_id != registry_account_id(input.self_account_id)
-        || registry.program_account_id != input.self_account_id
-    {
+fn validate_instruction(input: &ReceiveInput, instruction: &Instruction) -> Result<(), u32> {
+    let program = input.receiver.program_account_id;
+    if input.receiver.account_id != registry_account_id(program) {
         return Err(E_DESERIALIZE);
     }
     match instruction {
@@ -110,18 +78,19 @@ fn validate_instruction(input: &PlanInput, instruction: &Instruction) -> Result<
     }
 }
 
-fn apply(effect: Effect, pre_data: &ShardData) -> Option<Vec<u8>> {
+/// Returns the new registry bytes, or `None` to keep the current state.
+fn apply(instruction: Instruction, pre_data: &[u8]) -> Option<Vec<u8>> {
     let mut state = if pre_data.is_empty() {
         Registry::default()
     } else {
         Registry::try_from_slice(pre_data)
             .unwrap_or_else(|_| fail(E_DESERIALIZE, "invalid registry data"))
     };
-    match effect {
-        Effect::InitRegistry if !pre_data.is_empty() => return None,
-        Effect::InitRegistry => {}
-        Effect::RegisterRegion(entry) => apply_entry(&mut state, entry),
-        Effect::RegisterBatch { entries } => {
+    match instruction {
+        Instruction::InitRegistry if !pre_data.is_empty() => return None,
+        Instruction::InitRegistry => {}
+        Instruction::RegisterRegion(entry) => apply_entry(&mut state, entry),
+        Instruction::RegisterBatch { entries } => {
             if entries.is_empty() {
                 fail(E_DESERIALIZE, "empty batch");
             }
@@ -160,22 +129,31 @@ fn fail(code: u32, message: &str) -> ! {
 
 #[cfg(test)]
 mod tests {
+    use lee_core::account::{Actor, ActorState};
+
     use super::*;
 
+    fn input(program: AccountId, account: AccountId, pre: Vec<u8>) -> ReceiveInput {
+        ReceiveInput {
+            receiver: Actor::new(account, program),
+            from: None,
+            is_authorized: false,
+            pre_state: ActorState::from(pre),
+            message: Vec::new(),
+        }
+    }
+
+    fn registry_input(program: AccountId, pre: Vec<u8>) -> ReceiveInput {
+        input(program, registry_account_id(program), pre)
+    }
+
     #[test]
-    fn register_region_upserts_registry_shard() {
+    fn register_region_upserts_registry_state() {
         let program = AccountId::new([3; 32]);
-        let registry = registry_meta(program);
         let entry = good_entry("germany");
-        let input = PlanInput {
-            self_account_id: program,
-            caller_account_id: None,
-            accounts: vec![registry],
-            instruction_data: borsh::to_vec(&Instruction::RegisterRegion(entry.clone())).unwrap(),
-        };
-        let plan = plan(&input, Instruction::RegisterRegion(entry.clone()));
-        let effect = borsh::from_slice::<Effect>(&plan.output().effects[0].data).unwrap();
-        let next = apply(effect, &ShardData::empty()).unwrap();
+        let instruction = Instruction::RegisterRegion(entry.clone());
+        validate_instruction(&registry_input(program, Vec::new()), &instruction).unwrap();
+        let next = apply(instruction, &[]).unwrap();
         let state = Registry::try_from_slice(&next).unwrap();
         assert_eq!(state.entries.get("germany"), Some(&entry));
     }
@@ -183,33 +161,19 @@ mod tests {
     #[test]
     fn init_registry_preserves_existing_state() {
         let existing = borsh::to_vec(&Registry::default()).unwrap();
-        assert_eq!(
-            apply(
-                Effect::InitRegistry,
-                &ShardData::try_from(existing.clone()).unwrap()
-            ),
-            None
-        );
+        assert_eq!(apply(Instruction::InitRegistry, &existing), None);
     }
 
     #[test]
     fn register_batch_applies_all_entries_atomically() {
-        let program = AccountId::new([3; 32]);
         let entries = vec![good_entry("germany"), good_entry("france")];
-        let input = PlanInput {
-            self_account_id: program,
-            caller_account_id: None,
-            accounts: vec![registry_meta(program)],
-            instruction_data: Vec::new(),
-        };
-        let plan = plan(
-            &input,
+        let next = apply(
             Instruction::RegisterBatch {
                 entries: entries.clone(),
             },
-        );
-        let effect = borsh::from_slice::<Effect>(&plan.output().effects[0].data).unwrap();
-        let next = apply(effect, &ShardData::empty()).unwrap();
+            &[],
+        )
+        .unwrap();
         let registry = Registry::try_from_slice(&next).unwrap();
         assert_eq!(registry.entries.len(), 2);
         assert_eq!(registry.entries["germany"], entries[0]);
@@ -217,18 +181,22 @@ mod tests {
     }
 
     #[test]
-    fn plan_rejects_wrong_registry_pda() {
+    fn rejects_wrong_registry_pda() {
         let program = AccountId::new([3; 32]);
-        let mut meta = registry_meta(program);
-        meta.account_id = AccountId::new([9; 32]);
-        let input = PlanInput {
-            self_account_id: program,
-            caller_account_id: None,
-            accounts: vec![meta],
-            instruction_data: Vec::new(),
-        };
+        let wrong = input(program, AccountId::new([9; 32]), Vec::new());
         assert_eq!(
-            validate_instruction(&input, &Instruction::InitRegistry),
+            validate_instruction(&wrong, &Instruction::InitRegistry),
+            Err(E_DESERIALIZE)
+        );
+    }
+
+    #[test]
+    fn rejects_registry_pda_of_another_program() {
+        let program = AccountId::new([3; 32]);
+        let other = registry_account_id(AccountId::new([4; 32]));
+        let wrong = input(program, other, Vec::new());
+        assert_eq!(
+            validate_instruction(&wrong, &Instruction::InitRegistry),
             Err(E_DESERIALIZE)
         );
     }
@@ -241,9 +209,8 @@ mod tests {
         state.entries.insert(old.region.clone(), old);
         let bytes = borsh::to_vec(&state).unwrap();
         assert!(bytes.len() <= MAX_ACCOUNT_BYTES);
-        let pre_data = ShardData::try_from(bytes).unwrap();
         let result = std::panic::catch_unwind(|| {
-            apply(Effect::RegisterRegion(good_entry("germany")), &pre_data)
+            apply(Instruction::RegisterRegion(good_entry("germany")), &bytes)
         });
         let panic = result
             .err()
@@ -265,14 +232,11 @@ mod tests {
         let entries = (0..=MAX_BATCH)
             .map(|i| good_entry(&format!("r/{i}")))
             .collect();
-        let input = PlanInput {
-            self_account_id: program,
-            caller_account_id: None,
-            accounts: vec![registry_meta(program)],
-            instruction_data: Vec::new(),
-        };
         assert_eq!(
-            validate_instruction(&input, &Instruction::RegisterBatch { entries }),
+            validate_instruction(
+                &registry_input(program, Vec::new()),
+                &Instruction::RegisterBatch { entries }
+            ),
             Err(E_BATCH_TOO_BIG)
         );
     }

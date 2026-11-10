@@ -4,7 +4,7 @@
 
 [![CI workflow badge](https://github.com/YodHeVauHe/logos-osm/actions/workflows/ci.yml/badge.svg)](https://github.com/YodHeVauHe/logos-osm/actions/workflows/ci.yml) · **CI evidence:** GitHub Actions is green on `main` ([run 41095317888](https://github.com/YodHeVauHe/logos-osm/actions/runs/41095317888): Rust on Ubuntu and Windows, LEZ v0.3.1 chain e2e, and Nix module/app builds). A testnet v0.3 practice deployment is recorded under [Program IDs](#program-ids). Both modules are published in the [Logos module catalog](docs/catalog.md) (linux-amd64). The testnet 0.4 deployment and adoption evidence are pending owner actions.
 
-`logos-osm` provides a registry and tools for distributing Geofabrik OpenStreetMap PBF snapshots through Logos. The registry guest targets LEZ v0.3.1's plan/apply API and stores its Borsh registry in a public PDA shard owned by the deployed program account. The repository also includes a Rust SDK, CLI, C FFI, Basecamp core module, and QML app. A practice deployment on public testnet v0.3 is recorded below. The `osm` and `osm-app` modules are published in a Logos module catalog for linux-amd64: `https://raw.githubusercontent.com/YodHeVauHe/logos-osm-modules/main/logos-repo.json`. No testnet 0.4 deployment or ecosystem adoption is claimed.
+`logos-osm` provides a registry and tools for distributing Geofabrik OpenStreetMap PBF snapshots through Logos. The registry guest targets the LEZ v0.4 actor API (pinned to the `v0.4.0-rc1` tag) and stores its Borsh registry as the deployed program's actor state on a public PDA account. The repository also includes a Rust SDK, CLI, C FFI, Basecamp core module, and QML app. A practice deployment on public testnet v0.3 is recorded below. The `osm` and `osm-app` modules are published in a Logos module catalog for linux-amd64: `https://raw.githubusercontent.com/YodHeVauHe/logos-osm-modules/main/logos-repo.json`. No testnet 0.4 deployment or ecosystem adoption is claimed.
 
 ## Contents
 
@@ -37,7 +37,7 @@ Geofabrik supplies the snapshot index, published MD5 values, and fallback downlo
 
 | Component | Role |
 |---|---|
-| LEZ v0.3.1 guest (`methods/guest`) | Plans registry shard effects and applies initialization, one-entry upserts, and batches. |
+| LEZ v0.4 guest (`methods/guest`) | One `actor_entrypoint!` handler that applies initialization, one-entry upserts, and batches to the registry PDA's actor state. |
 | `osm_registry_core` | Shared registry types, validation, and error codes. |
 | `osm_sdk` | Discovery, verification, storage and registry abstractions, hosting, import, queries, downloads, and update checks. |
 | `osm_cli` | `osm` command line interface. |
@@ -51,7 +51,7 @@ Geofabrik supplies the snapshot index, published MD5 values, and fallback downlo
 - Rust 1.98.1 and Cargo for host workspace and CLI builds.
 - Nix with flakes enabled for Basecamp module and app packages.
 - RISC Zero `rzup` Rust 1.97.0 / C++ 2024.1.5 toolchains for `make build`; Docker is not used by this build. The build is toolchain pinned but not Docker deterministic, and host dependency resolution may change without lockfiles.
-- A LEZ v0.3.1 `wallet` binary and wallet home for deployment and transactions; the SDK CLI uses `LEE_WALLET_HOME_DIR` and `OSM_RPC_URL`.
+- A LEZ v0.4 `wallet` binary and wallet home for deployment and transactions; the SDK CLI uses `LEE_WALLET_HOME_DIR`, `OSM_RPC_URL` and, for an encrypted wallet, `LEE_WALLET_PASSWORD`.
 - `logosctl` 0.3.2 with the current `storage_module` API for production Storage operations. The in-memory mode is for development and tests.
 
 ## Build and test
@@ -65,11 +65,24 @@ RUSTUP_TOOLCHAIN=1.98.1 make build
 RUSTUP_TOOLCHAIN=1.98.1 cargo test -p osm_e2e --features e2e
 ```
 
-`make build` uses `risc0-build::embed_methods` with the installed rzup toolchains, wraps the ELF in the ProgramBinary format required by v0.3.1 `wallet program-loader`, and prints the image ID. `make idl` regenerates the tracked `idl/osm-registry.idl.json`.
+`make build` uses `risc0-build::embed_methods` with the installed rzup toolchains, wraps the ELF in the ProgramBinary format required by `wallet program-loader`, and prints the image ID. `make idl` regenerates the tracked `idl/osm-registry.idl.json`.
+
+### Deploying to a LEZ v0.4 network
+
+`tools/deploy_registry.sh` (also `make deploy RPC_URL=... PAYER=...`) does the whole deployment in one run: it checks that the wallet build matches the network (`wallet check-health`), builds the guest and CLI, creates fresh header and segment accounts, deploys an immutable program through `wallet program-loader deploy`, initializes the registry PDA, reads it back, and writes `deploy/<UTC stamp>/deployment.json` with the program ID, registry PDA, image ID and transaction references.
+
+```sh
+export LEZ_WALLET_BIN=/path/to/lez-v0.4/wallet
+export LEE_WALLET_HOME_DIR=/path/to/wallet-home   # holds the funded payer key
+export LEE_WALLET_PASSWORD=...                    # only if the wallet storage is encrypted
+tools/deploy_registry.sh --rpc-url https://testnet.lez.logos.co --payer <funded account id> [--write-wallet-config]
+```
+
+The payer pays one transaction per segment, the header and the init call. Account-creation output goes to `deploy/<stamp>/private` (mode 700) and is never printed. `--write-wallet-config` lets the script point the wallet config at `--rpc-url` (the old config is backed up there too).
 
 Nix builds are not claimed here; run the package builds if Nix is installed.
 
-Run the e2e suite with `RUSTUP_TOOLCHAIN=1.98.1 cargo test -p osm_e2e --features e2e`. `localnet_registry_host_query` uses a real sequencer only when `LEZ_LOCALNET=1` and the LEZ v0.3.1 registry CLI, deployed program account, wallet home, and fee payer are configured. A real Storage upload-download roundtrip now passes through `LogosctlStorage`; evidence covers one local node on `logos.test`, not a multi-node network transfer.
+Run the e2e suite with `RUSTUP_TOOLCHAIN=1.98.1 cargo test -p osm_e2e --features e2e`. `localnet_registry_host_query` uses a real sequencer only when `LEZ_LOCALNET=1` and the LEZ v0.4 registry CLI, deployed program account, wallet home, and fee payer are configured. A real Storage upload-download roundtrip now passes through `LogosctlStorage`; evidence covers one local node on `logos.test`, not a multi-node network transfer.
 
 ## Usage
 
@@ -93,11 +106,11 @@ Build the FFI library with `make ffi`, then build the app package with `nix buil
 
 ## Program IDs
 
-**Logos testnet 0.4:** pending operator deployment. LP-0018 requires the 0.4 deployment; none has occurred.
+**Logos testnet 0.4:** not live yet. LEZ `v0.4.0-rc1` is tagged and the code targets it, but on 2026-11-10 the public testnet (`https://testnet.lez.logos.co`) still ran LEZ v0.3 (a v0.3.1 wallet's `check-health` matched its built-in programs). LP-0018 requires the 0.4 deployment; none has occurred.
 
 ### Testnet v0.3 practice deployment (not the 0.4 deployment LP-0018 requires)
 
-These IDs are on the **public Logos testnet v0.3** LEZ zone (`https://testnet.lez.logos.co`). They are not testnet 0.4 IDs and do not satisfy the LP-0018 testnet 0.4 criterion. The deployment was made on 2026-10-30 with the LEZ v0.3.1 `wallet program-loader`, using an immutable header and fresh segment accounts.
+These IDs are on the **public Logos testnet v0.3** LEZ zone (`https://testnet.lez.logos.co`). They are not testnet 0.4 IDs and do not satisfy the LP-0018 testnet 0.4 criterion. The deployment was made on 2026-10-30 with the LEZ v0.3.1 `wallet program-loader`, using an immutable header and fresh segment accounts. This v0.3 deployment and its entries come from the pre-port code (`main` at `53ab0e2` and earlier); the code now builds against LEZ v0.4 and does not target the v0.3 network.
 
 | Item | Value |
 |---|---|
@@ -142,13 +155,13 @@ Status is based on repository artifacts, local commands, and the green `main` CI
 
 | Requirement | Status | Evidence |
 |---|---|---|
-| LEZ v0.3.1 plan/apply registry with required fields and batch registration | Guest host tests, workspace tests, and local sequencer e2e pass | [`methods/guest`](methods/guest), [`osm_registry_core`](osm_registry_core) |
+| LEZ v0.4 actor registry with required fields and batch registration | Guest host tests, workspace tests, and local sequencer e2e pass | [`methods/guest`](methods/guest), [`osm_registry_core`](osm_registry_core) |
 | Frozen region discovery, checksums, hosting/import, queries and updates | Implemented; Rust workspace tests pass | [`regions.json`](regions.json), [`osm_sdk`](osm_sdk), [`osm_cli`](osm_cli) |
 | CLI and consumer SDK | Implemented; CLI help and workspace build verified | [`osm_cli`](osm_cli), [`docs/sdk.md`](docs/sdk.md) |
 | Basecamp core module, app, and independent consumer example | `osm`, `osm-app`, `osm_consumer_example` and the `osm-consumer-app` UI example build with `logos-module-builder` in the CI Nix job; repo-level [`module.json`](module.json) indexes the per-module `metadata.json` manifests. In portable Basecamp (Linux x86_64), `osm-consumer-app` resolved `china/henan` and downloaded a checksum-verified snapshot through `osm_consumer_example` → `osm` | [`osm-module`](osm-module), [`osm-app`](osm-app), [`examples/basecamp-consumer`](examples/basecamp-consumer), [`examples/basecamp-consumer-app`](examples/basecamp-consumer-app), [embedding example](docs/sdk.md#embedding-example-a-basecamp-ui-app-on-top-of-the-consumer), [`flake.nix`](flake.nix) |
-| LEZ v0.3.1 instruction/account IDL generated and tracked | `make idl` regenerates the Borsh plan/apply contract; the CI IDL freshness check passes. Not SPEL-generated: SPEL still targets LEZ v0.2.5-rc2 | [`idl/osm-registry.idl.json`](idl/osm-registry.idl.json), [`docs/idl.md`](docs/idl.md) |
+| LEZ v0.4 instruction/account IDL generated and tracked | `make idl` regenerates the Borsh actor contract; the CI IDL freshness check passes. Not SPEL-generated: SPEL still targets LEZ v0.2.5-rc2 | [`idl/osm-registry.idl.json`](idl/osm-registry.idl.json), [`docs/idl.md`](docs/idl.md) |
 | In-memory e2e | `cargo test -p osm_e2e --features e2e` passes in CI | [`tests/e2e`](tests/e2e) |
-| Real LEZ v0.3.1 sequencer e2e and cycle capture | Passes locally and in the CI chain job; cycle sample recorded | [CI workflow](.github/workflows/ci.yml), [`docs/cycles.md`](docs/cycles.md) |
+| Real LEZ v0.4.0-rc1 sequencer e2e and cycle capture | Passes locally and in the CI chain job; cycle sample recorded | [CI workflow](.github/workflows/ci.yml), [`docs/cycles.md`](docs/cycles.md) |
 | Logos Storage host-query-download roundtrip | Storage upload-download passed against one local `storage_module` 3.0.2 node via logosctl 0.3.2; 3,507,206-byte Andorra PBF reproduced with matching MD5 and SHA-256. Registry query and multi-node transfer are not part of this result. | [`osm_sdk/src/storage.rs`](osm_sdk/src/storage.rs), [SDK storage configuration](docs/sdk.md) |
 | Logos testnet v0.3 practice deployment (not 0.4) | Deployed; init and one-entry register/read-back smoke test passed on the public testnet | [Program IDs](#testnet-v03-practice-deployment-not-the-04-deployment-lp-0018-requires) |
 | Logos testnet 0.4 deployment | Pending operator action | No testnet 0.4 program header account ID or registry PDA recorded |

@@ -10,29 +10,31 @@ how the file maps to SPEL's IDL format.
 
 ## Why SPEL cannot generate it today
 
-The registry guest targets LEZ v0.3.1, the version running on public testnet
-v0.3. Upstream SPEL is still built against LEZ v0.2.5-rc2.
+The registry guest targets LEZ v0.4 (pinned to the `v0.4.0-rc1` tag, the
+newest LEZ tag; public testnet 0.4 is not live yet). Upstream SPEL is still
+built against LEZ v0.2.5-rc2.
 
 | | Version | Evidence |
 |---|---|---|
-| Registry guest | LEZ `v0.3.1` (`lee_core`), `risc0-zkvm` 3.0.5 | [`methods/guest/Cargo.toml`](../methods/guest/Cargo.toml) |
+| Registry guest | LEZ `v0.4.0-rc1` (`lee_core`), `risc0-zkvm` 3.0.5 | [`methods/guest/Cargo.toml`](../methods/guest/Cargo.toml) |
 | SPEL `main` | LEZ `v0.2.5-rc2` | commit [`c6f73ce`](https://github.com/logos-co/spel/commit/c6f73ce21e4805f8430f03afdbdedf0b7e479a5e) (2026-10-13), `spel-cli/Cargo.toml` and `spel-framework-core/Cargo.toml` pin `nssa_core`/`nssa` (`lee_core`/`lee`) at `tag = "v0.2.5-rc2"` |
 | Latest SPEL release | LEZ `v0.2.5-rc2` | [`v0.7.0`](https://github.com/logos-co/spel/releases/tag/v0.7.0) |
 
-Checked on 2026-11-02: no SPEL branch updated since 2026-10-01 pins LEZ
-v0.3.x (they pin v0.2.5-rc2 or v0.2.4), and no open SPEL pull request moves
-SPEL to v0.3.x.
+Checked again on 2026-11-10: SPEL `main` is unchanged since `c6f73ce`
+(2026-10-13), and no SPEL branch or open pull request moves SPEL to LEZ
+v0.3.x or v0.4.
 
-The gap is in the program model, not only the version number. LEZ v0.3.1
-replaced the `ProgramInput` entry point that SPEL's `#[lez_program]` macros
-generate with the plan/apply model: `run_program(plan, apply)`, shard effects
-on accounts, and segmented program upload. The registry was first written
-against SPEL and the older API, then ported to v0.3.1 by hand so that it could
-run on a public network. SPEL's `#[lez_program]` macro expands to code that
-reads `nssa_core::program::ProgramInput` from the v0.2.5-rc2 API, so the
-v0.3.1 guest does not use SPEL macros, and `spel generate-idl` has no annotated
-program to read. It was not run, and no SPEL output has been produced or
-approximated here.
+The gap is in the program model, not only the version number. SPEL's
+`#[lez_program]` macro expands to code that reads
+`nssa_core::program::ProgramInput` from the v0.2.5-rc2 API. LEZ v0.3.1
+replaced that entry point with plan/apply (`run_program(plan, apply)` and
+shard effects), and LEZ v0.4 replaced plan/apply with the actor model
+(`actor_entrypoint!`, a handler `fn(&ReceiveInput, Msg) -> Response`, and
+per-program actor states on accounts). The registry was first written against
+SPEL and the older API, then ported by hand to v0.3.1 and to v0.4 so that it
+could run on the current networks. The guest does not use SPEL macros, so
+`spel generate-idl` has no annotated program to read. It was not run, and no
+SPEL output has been produced or approximated here.
 
 ## How the in-repo IDL maps to SPEL's format
 
@@ -43,7 +45,7 @@ The in-repo IDL carries the same information in a flatter layout:
 | `SpelIdl` field | `idl/osm-registry.idl.json` | Notes |
 |---|---|---|
 | `name` | `name: "osm_registry"` | Same. |
-| `version` | `version: "0.3.1"` | Here this is the LEZ target version, not a crate version. |
+| `version` | `version: "0.4.0-rc1"` | Here this is the LEZ target version, not a crate version. |
 | `instructions[].name` | `instructions[].name` | `init_registry`, `register_region`, `register_batch`. |
 | `instructions[].args[]` (`name`, `type`) | `instructions[].args` | `register_region` takes one `RegionEntry`; `register_batch` takes `entries: Vec<RegionEntry>` (at most 72, `max_entries`). |
 | `instructions[].accounts[]` (`name`, `writable`, `signer`, `pda`) | top-level `accounts` plus the account names in `instructions[].accounts` | One account, `registry`: writable, not a signer, owned by the program. |
@@ -51,9 +53,9 @@ The in-repo IDL carries the same information in a flatter layout:
 | `instructions[].discriminator` | `instruction_enum_discriminants` | **Different encoding.** SPEL uses the first 8 bytes of `SHA256("global:<name>")`. This guest decodes a Borsh enum, so the discriminant is the one-byte variant index: `init_registry` 0, `register_region` 1, `register_batch` 2. |
 | `types` | `types` | `RegionEntry` with 11 fields (`region`, `parent`, `level`, `cid`, `source_url`, `checksum`, `version`, `hosted`, `timestamp`, `registered_by`, `record_version`). |
 | `errors` | `errors` | Codes 1 to 12 (`E_REGION_EMPTY` to `E_BAD_SOURCE_URL`), shared with the SDK through `osm_registry_core`. |
-| `accounts` (account data types) | `read` | The registry is the Borsh `osm_registry_core::Registry` stored in the program's shard of the registry account. |
+| `accounts` (account data types) | `read` | The registry is the Borsh `osm_registry_core::Registry` stored in the program's actor state on the registry account (`account.data.actor_state(program_account_id)`). |
 | `spec`, `metadata`, `instruction_type` | none | `scaffold.toml` declares `lssa-idl/0.1.0` as the IDL spec. |
-| none | `runtime`, `encoding` | `LEZ plan/apply`, `borsh`. SPEL has no field for these. |
+| none | `runtime`, `encoding` | `LEZ actor (actor_entrypoint)`, `borsh`. SPEL has no field for these. |
 
 Because the discriminators differ, a SPEL client cannot be pointed at this
 program as is. The Rust SDK (`osm_sdk`) and `examples/src/bin/osm_registry_cli.rs`

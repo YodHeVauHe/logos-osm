@@ -1,4 +1,4 @@
-//! Wrap a RISC0 user ELF into the LEZ v0.3.1 program-loader format and print
+//! Wrap a RISC0 user ELF into the LEZ program-loader (v0.3.1 and v0.4) format and print
 //! the derived image ID.
 use risc0_binfmt::ProgramBinary;
 use risc0_zkos_v1compat::V1COMPAT_ELF;

@@ -1,7 +1,7 @@
 //! On-chain OSM registry client.
 //!
-//! Registry transactions use the LEZ v0.3.1 wallet client. Reads fetch the
-//! public registry shard and decode its Borsh `Registry` bytes locally.
+//! Registry transactions use the LEZ v0.4 wallet client. Reads fetch the
+//! registry PDA actor state and decode its Borsh `Registry` bytes locally.
 
 use crate::error::SdkError;
 use async_trait::async_trait;
@@ -105,9 +105,9 @@ fn sort_entries(entries: &mut [&RegionEntry]) {
     entries.sort_by(|a, b| (a.timestamp, a.region.as_str()).cmp(&(b.timestamp, b.region.as_str())));
 }
 
-// ── LEZ v0.3.1 wallet CLI implementation ──────────────────────────────────
+// ── LEZ v0.4 wallet CLI implementation ──────────────────────────────────
 
-/// Talks to the chain through `osm_registry_cli`, which uses LEZ v0.3.1's
+/// Talks to the chain through `osm_registry_cli`, which uses LEZ v0.4's
 /// WalletCore, RPC client, and public transaction builder.
 pub struct LezWalletRegistryClient {
     pub cli_bin: PathBuf,

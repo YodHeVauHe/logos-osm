@@ -43,7 +43,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Box::new(InMemoryStorage::new()),     // downloads don't need storage
         Box::new(LezWalletRegistryClient {
             cli_bin: "./examples/target/debug/osm_registry_cli".into(),
-            program_id: "<deployed-v0.3.1-program-account-id>".into(),
+            program_id: "<deployed-v0.4-program-account-id>".into(),
             rpc_url: "http://127.0.0.1:3040".into(),
             wallet_home: "/tmp/lez-wallet".into(),
             signer_account_id: "<fee-payer-account-id>".into(),
@@ -206,7 +206,7 @@ for u in sdk.check_updates().await? {
 | Concern | Production | Tests / dev |
 |---|---|---|
 | Storage | `LogosctlStorage` (calls the current `storage_module` API through `logosctl`) | `InMemoryStorage` |
-| Registry client | `LezWalletRegistryClient` (LEZ v0.3.1 wallet/RPC CLI for transactions and public account reads) | `MockRegistryClient` (feature `test-util`) |
+| Registry client | `LezWalletRegistryClient` (LEZ v0.4 wallet/RPC CLI for transactions and public account reads) | `MockRegistryClient` (feature `test-util`) |
 | Geofabrik | real service | `set_url_rewrite(base)` → wiremock or a mirror |
 
 Configure the production storage backend with `logosctl_bin` and
@@ -228,4 +228,4 @@ Retries: downloads and storage uploads retry with exponential back-off
 full context after the last attempt. Checksum mismatches fail fast with
 `ChecksumMismatch { expected, actual }` and never register anything.
 
-`LEE_WALLET_HOME_DIR` selects the v0.3.1 wallet home. Set `OSM_RPC_URL` (or pass the CLI's `--rpc-url`) to select a sequencer. The deployed program account ID is the program-loader header account, distinct from the image ID printed by `make build`. Registry bytes are fetched from `account.data.shard(program_account_id)` and Borsh-decoded as `osm_registry_core::Registry`.
+`LEE_WALLET_HOME_DIR` selects the v0.4 wallet home (set `LEE_WALLET_PASSWORD` if its storage is encrypted). Set `OSM_RPC_URL` (or pass the CLI's `--rpc-url`) to select a sequencer. The deployed program account ID is the program-loader header account, distinct from the image ID printed by `make build`. Registry bytes are fetched from `account.data.actor_state(program_account_id)` and Borsh-decoded as `osm_registry_core::Registry`.
